@@ -6,19 +6,18 @@ const { DirectLine } = require('botframework-directlinejs');
 
 const app = express();
 
-// Set your WhatsApp Business API credentials
 const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1';
 const PHONE_NUMBER_ID = '625219257346961';
 const VERIFY_TOKEN = 'WhatsAppBot123';
 const DIRECT_LINE_SECRET = 'qEyAQSHjjFw.N4URSFFvMqlgyBQT-FFmZoeDP4YCc_KgKNVTPUAEXds'; // <-- Replace this
 
+
 const PORT = process.env.PORT || 3000;
 app.use(bodyParser.json());
 
-// In-memory session map (for one DirectLine instance per WhatsApp user)
 const sessions = new Map();
 
-// Webhook Verification (GET)
+// Webhook Verification
 app.get('/webhook', (req, res) => {
   if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
     res.send(req.query['hub.challenge']);
@@ -27,7 +26,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Webhook for incoming WhatsApp messages (POST)
+// Webhook for incoming WhatsApp messages
 app.post('/webhook', (req, res) => {
   const body = req.body;
 
@@ -41,6 +40,7 @@ app.post('/webhook', (req, res) => {
           const messageAudio = message.audio?.id;
 
           if (messageText) {
+            console.log(`Received text from ${senderId}:`, messageText);
             forwardToCopilotBot(senderId, messageText);
           } else if (messageAudio) {
             handleVoiceMessage(messageAudio, senderId);
@@ -55,7 +55,7 @@ app.post('/webhook', (req, res) => {
   }
 });
 
-// Function to send message to WhatsApp
+// Send message to WhatsApp
 function sendMessage(to, message) {
   axios
     .post(
@@ -73,14 +73,14 @@ function sendMessage(to, message) {
       }
     )
     .then((response) => {
-      console.log('Message sent:', response.data);
+      console.log('✅ Message sent to WhatsApp:', response.data);
     })
     .catch((error) => {
-      console.error('Error sending message:', error.response?.data || error.message);
+      console.error('❌ Error sending message to WhatsApp:', error.response?.data || error.message);
     });
 }
 
-// Function to handle voice messages
+// Handle voice messages (optional)
 async function handleVoiceMessage(mediaId, senderId) {
   try {
     const mediaUrlRes = await axios.get(
@@ -103,54 +103,56 @@ async function handleVoiceMessage(mediaId, senderId) {
         headers: {
           'Ocp-Apim-Subscription-Key': '40K84vS2b0E637v9J0qtz4MEpA7bsjaoRBg9DjQY9A3wjcptJ9o1JQQJ99BCACYeBjFXJ3w3AAAYACOG2sOr',
           'Content-Type': 'audio/ogg; codecs=opus',
-          'Transfer-Encoding': 'chunked',
         },
       }
     );
 
     const text = azureRes.data.DisplayText;
-    console.log("Transcribed:", text);
+    console.log("🗣️ Transcribed voice message:", text);
     forwardToCopilotBot(senderId, text);
   } catch (err) {
-    console.error("Error handling voice:", err.response?.data || err.message);
+    console.error("❌ Error handling voice:", err.response?.data || err.message);
     sendMessage(senderId, `Sorry, I couldn't understand your voice message.`);
   }
 }
 
-// Function to forward message to Copilot Studio bot
+// Forward message to Copilot Studio bot
 function forwardToCopilotBot(senderId, text) {
-  let directLine = sessions.get(senderId);
-
-  if (!directLine) {
-    directLine = new DirectLine({ secret: DIRECT_LINE_SECRET });
+  if (!sessions.has(senderId)) {
+    const directLine = new DirectLine({ secret: DIRECT_LINE_SECRET });
     sessions.set(senderId, directLine);
 
-    // Immediately subscribe to activity$
     directLine.activity$.subscribe(activity => {
-      if (activity.type === 'message' && activity.from.role === 'bot' && activity.text) {
+      console.log('📩 Activity from bot:', JSON.stringify(activity, null, 2));
+
+      if (
+        activity.type === 'message' &&
+        activity.from.role === 'bot' &&
+        activity.text
+      ) {
         sendMessage(senderId, activity.text);
       }
     });
   }
 
-  // Post activity after subscription is established
+  const directLine = sessions.get(senderId);
+
   directLine.postActivity({
     from: { id: senderId, name: 'whatsapp-user' },
     type: 'message',
     text: text,
   }).subscribe(
-    id => console.log('Posted to bot, activity ID:', id),
-    error => console.error('Error posting to bot:', error)
+    id => console.log('✅ Activity posted to bot, ID:', id),
+    error => console.error('❌ Error posting activity to bot:', error)
   );
 }
 
-
 // Test endpoint
 app.get('/greet', (req, res) => {
-  res.status(200).json({ message: 'Hi, Darshan!' });
+  res.status(200).json({ message: 'Hi, Darshannn!' });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`🚀 Server is running on port ${PORT}`);
 });
