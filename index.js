@@ -119,19 +119,21 @@ async function handleVoiceMessage(mediaId, senderId) {
 
 // Function to forward message to Copilot Studio bot
 function forwardToCopilotBot(senderId, text) {
-  if (!sessions.has(senderId)) {
-    const directLine = new DirectLine({ secret: DIRECT_LINE_SECRET });
+  let directLine = sessions.get(senderId);
+
+  if (!directLine) {
+    directLine = new DirectLine({ secret: DIRECT_LINE_SECRET });
     sessions.set(senderId, directLine);
 
+    // Immediately subscribe to activity$
     directLine.activity$.subscribe(activity => {
-      if (activity.from.id !== senderId && activity.type === 'message' && activity.text) {
+      if (activity.type === 'message' && activity.from.role === 'bot' && activity.text) {
         sendMessage(senderId, activity.text);
       }
     });
   }
 
-  const directLine = sessions.get(senderId);
-
+  // Post activity after subscription is established
   directLine.postActivity({
     from: { id: senderId, name: 'whatsapp-user' },
     type: 'message',
@@ -141,6 +143,7 @@ function forwardToCopilotBot(senderId, text) {
     error => console.error('Error posting to bot:', error)
   );
 }
+
 
 // Test endpoint
 app.get('/greet', (req, res) => {
