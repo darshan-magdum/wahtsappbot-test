@@ -2,24 +2,23 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
+const { DirectLine } = require('botframework-directlinejs');
 
 const app = express();
 
 // Set your WhatsApp Business API credentials
-const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1'; // Replace with your actual token
-  
-const PHONE_NUMBER_ID = '625219257346961'; // Replace with your number ID
+const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1';
+const PHONE_NUMBER_ID = '625219257346961';
+const VERIFY_TOKEN = 'WhatsAppBot123';
+const DIRECT_LINE_SECRET = 'qEyAQSHjjFw.N4URSFFvMqlgyBQT-FFmZoeDP4YCc_KgKNVTPUAEXds'; // <-- Replace this
 
-// Webhook verification token
-const VERIFY_TOKEN = 'WhatsAppBot123';  // Use this in your Meta app webhook settings
-
-// Set the port
 const PORT = process.env.PORT || 3000;
-
-// Middleware
 app.use(bodyParser.json());
 
-// 1. Webhook Verification (GET)
+// In-memory session map (for one DirectLine instance per WhatsApp user)
+const sessions = new Map();
+
+// Webhook Verification (GET)
 app.get('/webhook', (req, res) => {
   if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
     res.send(req.query['hub.challenge']);
@@ -28,7 +27,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// 2. Receiving Messages (POST)
+// Webhook for incoming WhatsApp messages (POST)
 app.post('/webhook', (req, res) => {
   const body = req.body;
 
@@ -40,13 +39,12 @@ app.post('/webhook', (req, res) => {
           const senderId = message.from;
           const messageText = message.text?.body;
           const messageAudio = message.audio?.id;
-          
+
           if (messageText) {
-            sendMessage(senderId, `Thanks for your message: ${messageText}`);
+            forwardToCopilotBot(senderId, messageText);
           } else if (messageAudio) {
             handleVoiceMessage(messageAudio, senderId);
           }
-          
         }
       });
     });
@@ -57,9 +55,7 @@ app.post('/webhook', (req, res) => {
   }
 });
 
-
-
-// 3. Sending Message Function
+// Function to send message to WhatsApp
 function sendMessage(to, message) {
   axios
     .post(
@@ -84,59 +80,74 @@ function sendMessage(to, message) {
     });
 }
 
-
+// Function to handle voice messages
 async function handleVoiceMessage(mediaId, senderId) {
-    try {
-      // Step 1: Get audio URL from Meta API
-      const mediaUrlRes = await axios.get(
-        `https://graph.facebook.com/v17.0/${mediaId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${ACCESS_TOKEN}`,
-          },
-        }
-      );
-      const mediaUrl = mediaUrlRes.data.url;
-  
-      // Step 2: Download audio binary
-      const audioRes = await axios.get(mediaUrl, {
-        headers: {
-          Authorization: `Bearer ${ACCESS_TOKEN}`,
-        },
-        responseType: 'arraybuffer',
-      });
-  
-      // Step 3: Send audio to Azure Speech-to-Text
-      const azureRes = await axios.post(
-        `https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`,
-        audioRes.data,
-        {
-          headers: {
-            'Ocp-Apim-Subscription-Key': '40K84vS2b0E637v9J0qtz4MEpA7bsjaoRBg9DjQY9A3wjcptJ9o1JQQJ99BCACYeBjFXJ3w3AAAYACOG2sOr',
-            'Content-Type': 'audio/ogg; codecs=opus',
-            'Transfer-Encoding': 'chunked',
-          },
-        }
-      );
-  
-      const text = azureRes.data.DisplayText;
-      console.log("Transcribed:", text);
-  
-      // Step 4: Reply to sender
-      sendMessage(senderId, `You said: ${text}`);
-    } catch (err) {
-      console.error("Error handling voice:", err.response?.data || err.message);
-      sendMessage(senderId, `Sorry, I couldn't understand your voice message.`);
-    }
-  }
-  
+  try {
+    const mediaUrlRes = await axios.get(
+      `https://graph.facebook.com/v17.0/${mediaId}`,
+      {
+        headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+      }
+    );
+    const mediaUrl = mediaUrlRes.data.url;
 
-// 4. Test endpoint
+    const audioRes = await axios.get(mediaUrl, {
+      headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+      responseType: 'arraybuffer',
+    });
+
+    const azureRes = await axios.post(
+      `https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`,
+      audioRes.data,
+      {
+        headers: {
+          'Ocp-Apim-Subscription-Key': '40K84vS2b0E637v9J0qtz4MEpA7bsjaoRBg9DjQY9A3wjcptJ9o1JQQJ99BCACYeBjFXJ3w3AAAYACOG2sOr',
+          'Content-Type': 'audio/ogg; codecs=opus',
+          'Transfer-Encoding': 'chunked',
+        },
+      }
+    );
+
+    const text = azureRes.data.DisplayText;
+    console.log("Transcribed:", text);
+    forwardToCopilotBot(senderId, text);
+  } catch (err) {
+    console.error("Error handling voice:", err.response?.data || err.message);
+    sendMessage(senderId, `Sorry, I couldn't understand your voice message.`);
+  }
+}
+
+// Function to forward message to Copilot Studio bot
+function forwardToCopilotBot(senderId, text) {
+  if (!sessions.has(senderId)) {
+    const directLine = new DirectLine({ secret: DIRECT_LINE_SECRET });
+    sessions.set(senderId, directLine);
+
+    directLine.activity$.subscribe(activity => {
+      if (activity.from.id !== senderId && activity.type === 'message' && activity.text) {
+        sendMessage(senderId, activity.text);
+      }
+    });
+  }
+
+  const directLine = sessions.get(senderId);
+
+  directLine.postActivity({
+    from: { id: senderId, name: 'whatsapp-user' },
+    type: 'message',
+    text: text,
+  }).subscribe(
+    id => console.log('Posted to bot, activity ID:', id),
+    error => console.error('Error posting to bot:', error)
+  );
+}
+
+// Test endpoint
 app.get('/greet', (req, res) => {
-  res.status(200).json({ message: 'Hi, Dan!' });
+  res.status(200).json({ message: 'Hi, Darshan!' });
 });
 
-// Start the server
+// Start server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
