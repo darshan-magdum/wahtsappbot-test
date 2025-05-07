@@ -6,46 +6,44 @@ const axios = require('axios');
 const app = express();
 
 // Set your WhatsApp Business API credentials
-const ACCESS_TOKEN = 'EAAwMHmajCHQBO9oLRA0GseWpi9PK3zT55JsECFDCrZBQenZCsrMtWMUMGHdWpIybfwIQTCzC1ovO0ZCPnQzLu1daYVHHfKzoQMne8y6SetUg4DWukwbpJp0PF8ZC5SlfiZCVgtMJnU4viwKkPs4j7ZBsOU0e1wB6KuLr5v5k28NMETUgrdgnuhOccfCk6v3AFfsZAsWK08RroEXWunkowMQ7zHlicIZD'; // Your WhatsApp Access Token
-const PHONE_NUMBER_ID = '625219257346961'; // Your WhatsApp Phone Number ID
+const ACCESS_TOKEN = 'EAAOL5Ahao08BO9WiGtI07hd4tGupXubyrdHfmcYMLLyOzYeOhMZAMGHHBrg7zkM12iUZCJt68t2z5MjUEZBr36l4ZC5yOlKZBZBQDiiAUWhDvMdjRgg9hUSwapcpZAJjy7Ecv0qBsVfNCLQ1BO4PLZCJZBwljvZA6EE1XNwcHja6LBFwMWtQ70HZB5MoaCoeG4xKT1EfEEpoUcZCurIvcp25xmRTjTie63oZD'; // Replace with your actual token
+const PHONE_NUMBER_ID = '625219257346961'; // Replace with your number ID
 
-// Set the port for your server
+// Webhook verification token
+const VERIFY_TOKEN = 'WhatsAppBot123';  // Use this in your Meta app webhook settings
+
+// Set the port
 const PORT = process.env.PORT || 3000;
 
-// Middleware to parse incoming requests
+// Middleware
 app.use(bodyParser.json());
 
-// 1. Webhook verification route
+// 1. Webhook Verification (GET)
 app.get('/webhook', (req, res) => {
-  const VERIFY_TOKEN = 'WhatsAppBot123'; // Your Webhook Verify Token
-
-  // Check the token sent in the query string to verify
   if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
     res.send(req.query['hub.challenge']);
   } else {
-    res.send('Error, wrong validation token');
+    res.status(403).send('Verification token mismatch');
   }
 });
 
-// 2. Webhook POST route to receive messages
+// 2. Receiving Messages (POST)
 app.post('/webhook', (req, res) => {
   const body = req.body;
 
-  // Check if the body is from a page (Facebook Pages)
-  if (body.object === 'whatsapp') {
-    body.entry.forEach(function(entry) {
-      const messaging = entry.messaging[0];
+  if (body.object === 'whatsapp_business_account') {
+    body.entry.forEach(entry => {
+      entry.changes.forEach(change => {
+        const message = change.value?.messages?.[0];
+        if (message) {
+          const senderId = message.from;
+          const messageText = message.text?.body;
 
-      // Get the phone number of the sender
-      const senderId = messaging.sender.id;
-      
-      // Get the message text
-      const messageText = messaging.message.text;
-
-      // Respond to the message
-      if (messageText) {
-        sendMessage(senderId, 'Thanks for your message: ' + messageText);
-      }
+          if (messageText) {
+            sendMessage(senderId, `Thanks for your message: ${messageText}`);
+          }
+        }
+      });
     });
 
     res.status(200).send('EVENT_RECEIVED');
@@ -54,14 +52,14 @@ app.post('/webhook', (req, res) => {
   }
 });
 
-// 3. Function to send message via WhatsApp
-function sendMessage(phoneNumberId, message) {
+// 3. Sending Message Function
+function sendMessage(to, message) {
   axios
     .post(
       `https://graph.facebook.com/v13.0/${PHONE_NUMBER_ID}/messages`,
       {
         messaging_product: 'whatsapp',
-        to: phoneNumberId,
+        to: to,
         text: { body: message },
       },
       {
@@ -75,16 +73,15 @@ function sendMessage(phoneNumberId, message) {
       console.log('Message sent:', response.data);
     })
     .catch((error) => {
-      console.error('Error sending message:', error.response.data);
+      console.error('Error sending message:', error.response?.data || error.message);
     });
 }
 
-
+// 4. Test endpoint
 app.get('/greet', (req, res) => {
-    res.status(200).json({
-      message: "Hi, Dan!", // Static message
-    });
-  });
+  res.status(200).json({ message: 'Hi, Dan!' });
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
