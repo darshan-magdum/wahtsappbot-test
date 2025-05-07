@@ -6,7 +6,7 @@ const axios = require('axios');
 const app = express();
 
 // Set your WhatsApp Business API credentials
-const ACCESS_TOKEN = 'EAAOL5Ahao08BO9WiGtI07hd4tGupXubyrdHfmcYMLLyOzYeOhMZAMGHHBrg7zkM12iUZCJt68t2z5MjUEZBr36l4ZC5yOlKZBZBQDiiAUWhDvMdjRgg9hUSwapcpZAJjy7Ecv0qBsVfNCLQ1BO4PLZCJZBwljvZA6EE1XNwcHja6LBFwMWtQ70HZB5MoaCoeG4xKT1EfEEpoUcZCurIvcp25xmRTjTie63oZD'; // Replace with your actual token
+const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO66j6nYIoUOYgD57tlKfcTjQKkbxCup4lXT4oj6GDv8MMKSPZAD2tEQdXFZAkwR2HFQrYZC5sFmiht8wjm3E8x9NuVmqsWglyj92JZC08YIwKSDGn0Xya1R4YTLS43F87Cb1AEDNnfRyKaJDZB0TQBipq13MiZCngwMzttA1zIvzGfRBXcNpyt3a6u9BoA6saMcEOEBuxk6bVb7ZAgZD'; // Replace with your actual token
 const PHONE_NUMBER_ID = '625219257346961'; // Replace with your number ID
 
 // Webhook verification token
