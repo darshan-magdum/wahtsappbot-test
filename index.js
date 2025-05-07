@@ -122,17 +122,19 @@ function forwardToCopilotBot(senderId, text) {
     const directLine = new DirectLine({ secret: DIRECT_LINE_SECRET });
     sessions.set(senderId, directLine);
 
-    directLine.activity$.subscribe(activity => {
-      console.log('📩 Activity from bot:', JSON.stringify(activity, null, 2));
-
-      if (
-        activity.type === 'message' &&
-        activity.from.role === 'bot' &&
-        activity.text
-      ) {
-        sendMessage(senderId, activity.text);
+    directLine.activity$.subscribe(
+      activity => {
+        console.log('📩 Activity from bot:', JSON.stringify(activity, null, 2));
+    
+        if (activity.type === 'message' && activity.from.role === 'bot' && activity.text) {
+          sendMessage(senderId, activity.text);
+        }
+      },
+      error => {
+        console.error('❌ Error receiving activity from bot:', error);
       }
-    });
+    );
+    
   }
 
   const directLine = sessions.get(senderId);
