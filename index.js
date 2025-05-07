@@ -39,10 +39,14 @@ app.post('/webhook', (req, res) => {
         if (message) {
           const senderId = message.from;
           const messageText = message.text?.body;
-
+          const messageAudio = message.audio?.id;
+          
           if (messageText) {
             sendMessage(senderId, `Thanks for your message: ${messageText}`);
+          } else if (messageAudio) {
+            handleVoiceMessage(messageAudio, senderId);
           }
+          
         }
       });
     });
@@ -52,6 +56,8 @@ app.post('/webhook', (req, res) => {
     res.sendStatus(404);
   }
 });
+
+
 
 // 3. Sending Message Function
 function sendMessage(to, message) {
@@ -77,6 +83,53 @@ function sendMessage(to, message) {
       console.error('Error sending message:', error.response?.data || error.message);
     });
 }
+
+
+async function handleVoiceMessage(mediaId, senderId) {
+    try {
+      // Step 1: Get audio URL from Meta API
+      const mediaUrlRes = await axios.get(
+        `https://graph.facebook.com/v17.0/${mediaId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${ACCESS_TOKEN}`,
+          },
+        }
+      );
+      const mediaUrl = mediaUrlRes.data.url;
+  
+      // Step 2: Download audio binary
+      const audioRes = await axios.get(mediaUrl, {
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+        },
+        responseType: 'arraybuffer',
+      });
+  
+      // Step 3: Send audio to Azure Speech-to-Text
+      const azureRes = await axios.post(
+        `https://<your-region>.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`,
+        audioRes.data,
+        {
+          headers: {
+            'Ocp-Apim-Subscription-Key': '<your-azure-key>',
+            'Content-Type': 'audio/ogg; codecs=opus',
+            'Transfer-Encoding': 'chunked',
+          },
+        }
+      );
+  
+      const text = azureRes.data.DisplayText;
+      console.log("Transcribed:", text);
+  
+      // Step 4: Reply to sender
+      sendMessage(senderId, `You said: ${text}`);
+    } catch (err) {
+      console.error("Error handling voice:", err.response?.data || err.message);
+      sendMessage(senderId, `Sorry, I couldn't understand your voice message.`);
+    }
+  }
+  
 
 // 4. Test endpoint
 app.get('/greet', (req, res) => {
