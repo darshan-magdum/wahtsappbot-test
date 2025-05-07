@@ -108,11 +108,11 @@ async function handleVoiceMessage(mediaId, senderId) {
   
       // Step 3: Send audio to Azure Speech-to-Text
       const azureRes = await axios.post(
-        `https://<your-region>.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`,
+        `https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`,
         audioRes.data,
         {
           headers: {
-            'Ocp-Apim-Subscription-Key': '<your-azure-key>',
+            'Ocp-Apim-Subscription-Key': '40K84vS2b0E637v9J0qtz4MEpA7bsjaoRBg9DjQY9A3wjcptJ9o1JQQJ99BCACYeBjFXJ3w3AAAYACOG2sOr',
             'Content-Type': 'audio/ogg; codecs=opus',
             'Transfer-Encoding': 'chunked',
           },
