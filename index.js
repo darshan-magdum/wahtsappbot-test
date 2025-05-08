@@ -190,7 +190,7 @@ async function sendToBot(userMessage) {
 
 // Test endpoint
 app.get('/greet', (req, res) => {
-  res.status(200).json({ message: 'Hi, Dan1!' });
+  res.status(200).json({ message: 'Hi, Dan2!' });
 });
 
 // Start the server
