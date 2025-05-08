@@ -44,14 +44,25 @@ app.post('/webhook', async (req, res) => {
         const message = change.value?.messages?.[0];
         if (message) {
           const senderId = message.from;
-          const messageText = message.text?.body;
 
-          if (messageText) {
-            // Send the WhatsApp message to the bot via Direct Line
-            const botReply = await sendToBot(messageText);
-            
-            // Send the bot's response back to the WhatsApp user
-            sendMessage(senderId, botReply);
+          // Handle text messages
+          if (message.type === "text") {
+            const messageText = message.text?.body;
+            if (messageText) {
+              const botReply = await sendToBot(messageText);
+              sendMessage(senderId, botReply);
+            }
+
+          // Handle voice messages
+          } else if (message.type === "audio") {
+            const mediaId = message.audio?.id;
+            if (mediaId) {
+              await handleVoiceMessage(mediaId, senderId);
+            }
+
+          // Fallback for unsupported message types
+          } else {
+            sendMessage(senderId, "Sorry, I can only understand text and voice messages at the moment.");
           }
         }
       });
@@ -62,6 +73,7 @@ app.post('/webhook', async (req, res) => {
     res.sendStatus(404);
   }
 });
+
 
 // Send message to WhatsApp user
 function sendMessage(to, message) {
@@ -86,6 +98,43 @@ function sendMessage(to, message) {
     .catch((error) => {
       console.error('Error sending message:', error.response?.data || error.message);
     });
+}
+
+// Function to handle voice messages
+async function handleVoiceMessage(mediaId, senderId) {
+  try {
+    const mediaUrlRes = await axios.get(
+      `https://graph.facebook.com/v17.0/${mediaId}`,
+      {
+        headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+      }
+    );
+    const mediaUrl = mediaUrlRes.data.url;
+
+    const audioRes = await axios.get(mediaUrl, {
+      headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+      responseType: 'arraybuffer',
+    });
+
+    const azureRes = await axios.post(
+      `https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`,
+      audioRes.data,
+      {
+        headers: {
+          'Ocp-Apim-Subscription-Key': '40K84vS2b0E637v9J0qtz4MEpA7bsjaoRBg9DjQY9A3wjcptJ9o1JQQJ99BCACYeBjFXJ3w3AAAYACOG2sOr',
+          'Content-Type': 'audio/ogg; codecs=opus',
+          'Transfer-Encoding': 'chunked',
+        },
+      }
+    );
+
+    const text = azureRes.data.DisplayText;
+    console.log("Transcribed:", text);
+    forwardToCopilotBot(senderId, text);
+  } catch (err) {
+    console.error("Error handling voice:", err.response?.data || err.message);
+    sendMessage(senderId, `Sorry, I couldn't understand your voice message.`);
+  }
 }
 
 // Send message to Copilot Studio bot via Direct Line
