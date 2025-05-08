@@ -58,7 +58,7 @@ app.post("/send", async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: "Failed to send message" });
+    res.status(500).json({ error: "Failed to send message to bot" });
   }
 });
 
@@ -173,21 +173,48 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-
 // --- Send Message to WhatsApp User ---
 async function sendWhatsAppMessage(to, message) {
-  await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${ACCESS_TOKEN}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      text: { body: message },
-    }),
-  });
+  try {
+    await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${ACCESS_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        text: { body: message },
+      })
+    });
+    console.log(`Sent message to ${to}: ${message}`);
+  } catch (error) {
+    console.error(`Failed to send WhatsApp message to ${to}:`, error);
+  }
+}
+
+// --- Get Bot Response ---
+async function getBotResponse(conversationId) {
+  const watermark = conversations[conversationId]?.watermark || "";
+
+  try {
+    const response = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${watermark}`, {
+      headers: {
+        "Authorization": `Bearer ${directLineSecret}`
+      }
+    });
+
+    const data = await response.json();
+    if (data.watermark) {
+      conversations[conversationId].watermark = data.watermark;
+    }
+
+    return data.activities.filter(activity => activity.from.id !== "user");
+  } catch (error) {
+    console.error("Failed to get bot response:", error);
+    return [];
+  }
 }
 
 app.listen(port, () => {
