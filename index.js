@@ -1,68 +1,49 @@
 const express = require("express");
 const fetch = require("node-fetch");
 const cors = require("cors");
+const bodyParser = require("body-parser");
 
 const app = express();
 const port = 5000;
 
-
-const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1'; // Replace with your actual token
-const PHONE_NUMBER_ID = '625219257346961'; // Replace with your number ID
-
-// Webhook verification token
-const VERIFY_TOKEN = 'WhatsAppBot123';  // Use this in your Meta app webhook settings
-
-// Direct Line credentials
-const directLineSecret = "4bEHl4WbbsPZnu4Tq3APzAfGbKMVBM2uUEDw2dXyzZ4MDTZSPc03JQQJ99BEAC77bzfAArohAAABAZBS0118.G46ntCLcGwB772orOgAsylaVC25MW5sWNN8ZlS1vYlzxOMGQmFNgJQQJ99BEAC77bzfAArohAAABAZBS3CCb"; // Replace with your actual Direct Line Secret
-
-
-
-app.use(cors());
-app.use(express.json());
-
 let conversations = {};
 
-// ✅ WhatsApp Webhook Verification
-app.get("/webhook", (req, res) => {
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
+const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1';
+const PHONE_NUMBER_ID = '625219257346961';
+const VERIFY_TOKEN = 'WhatsAppBot123';
+const directLineSecret = 'qEyAQSHjjFw.N4URSFFvMqlgyBQT-FFmZoeDP4YCc_KgKNVTPUAEXds'; // <-- Replace this
 
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("WEBHOOK_VERIFIED");
-    res.status(200).send(challenge);
-  } else {
-    res.sendStatus(403);
+
+// --- Middleware ---
+app.use(cors());
+app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// --- Start Bot Conversation ---
+app.post("/start", async (req, res) => {
+  try {
+    const response = await fetch("https://directline.botframework.com/v3/directline/conversations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${directLineSecret}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    const data = await response.json();
+    conversations[data.conversationId] = { watermark: null };
+    res.json({ conversationId: data.conversationId });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to start conversation" });
   }
 });
 
-// ✅ Handle incoming WhatsApp messages
-app.post("/webhook", async (req, res) => {
-  const entry = req.body.entry?.[0];
-  const message = entry?.changes?.[0]?.value?.messages?.[0];
-  const from = message?.from;
-  const userText = message?.text?.body;
+// --- Send Message to Bot ---
+app.post("/send", async (req, res) => {
+  const { conversationId, message } = req.body;
 
-  if (from && userText) {
-    console.log(`Received message from ${from}: ${userText}`);
-
-    // Start a new conversation if not present
-    if (!conversations[from]) {
-      const response = await fetch("https://directline.botframework.com/v3/directline/conversations", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${directLineSecret}`,
-          "Content-Type": "application/json"
-        }
-      });
-      const data = await response.json();
-      conversations[from] = { conversationId: data.conversationId, watermark: null };
-    }
-
-    const conversationId = conversations[from].conversationId;
-
-    // Send user's message to bot
-    await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities`, {
+  try {
+    const response = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${directLineSecret}`,
@@ -70,32 +51,123 @@ app.post("/webhook", async (req, res) => {
       },
       body: JSON.stringify({
         type: "message",
-        from: { id: from },
-        text: userText
+        from: { id: "user" },
+        text: message
       })
     });
 
-    // Wait and fetch bot's reply
-    setTimeout(async () => {
-      const watermark = conversations[from].watermark || "";
-      const botResponse = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${watermark}`, {
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+// --- Poll Bot Response ---
+app.get("/receive/:conversationId", async (req, res) => {
+  const { conversationId } = req.params;
+  const watermark = conversations[conversationId]?.watermark || "";
+
+  try {
+    const response = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${watermark}`, {
+      headers: {
+        "Authorization": `Bearer ${directLineSecret}`
+      }
+    });
+
+    const data = await response.json();
+    if (data.watermark) {
+      conversations[conversationId].watermark = data.watermark;
+    }
+
+    const botMessages = data.activities.filter(activity => activity.from.id !== "user");
+    res.json(botMessages);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get messages" });
+  }
+});
+
+// --- WhatsApp Webhook Verification ---
+app.get("/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode && token) {
+    if (mode === "subscribe" && token === VERIFY_TOKEN) {
+      console.log("WEBHOOK_VERIFIED");
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
+    }
+  }
+});
+
+// --- WhatsApp Webhook Message Receiver ---
+app.post("/webhook", async (req, res) => {
+  const body = req.body;
+
+  if (body.object) {
+    const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+
+    if (message && message.text && message.from) {
+      const userMessage = message.text.body;
+      const from = message.from;
+
+      console.log(`Received message from WhatsApp: ${userMessage}`);
+
+      // Start or reuse conversation
+      let conversationId;
+      if (!conversations[from]) {
+        const response = await fetch("https://directline.botframework.com/v3/directline/conversations", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${directLineSecret}`,
+            "Content-Type": "application/json"
+          }
+        });
+        const data = await response.json();
+        conversationId = data.conversationId;
+        conversations[from] = { conversationId, watermark: null };
+      } else {
+        conversationId = conversations[from].conversationId;
+      }
+
+      // Send message to bot
+      await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities`, {
+        method: "POST",
         headers: {
-          "Authorization": `Bearer ${directLineSecret}`
-        }
+          "Authorization": `Bearer ${directLineSecret}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          type: "message",
+          from: { id: "user" },
+          text: userMessage
+        })
       });
 
-      const data = await botResponse.json();
-      if (data.watermark) {
-        conversations[from].watermark = data.watermark;
-      }
+      // Wait briefly to let bot reply
+      setTimeout(async () => {
+        const response = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${conversations[from].watermark || ""}`, {
+          headers: {
+            "Authorization": `Bearer ${directLineSecret}`
+          }
+        });
 
-      const botMessages = data.activities.filter(a => a.from.id !== from);
-      for (const msg of botMessages) {
-        if (msg.text) {
-          await sendWhatsAppMessage(from, msg.text);
+        const data = await response.json();
+        if (data.watermark) {
+          conversations[from].watermark = data.watermark;
         }
-      }
-    }, 1500);
+
+        const botMessages = data.activities.filter(activity => activity.from.id !== "user");
+        for (let msg of botMessages) {
+          if (msg.text) {
+            await sendWhatsAppMessage(from, msg.text);
+          }
+        }
+      }, 1000);
+    }
 
     res.sendStatus(200);
   } else {
@@ -103,9 +175,9 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// ✅ Function to send message back to WhatsApp
-async function sendWhatsAppMessage(to, text) {
-  await fetch(`https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`, {
+// --- Send Message to WhatsApp User ---
+async function sendWhatsAppMessage(to, message) {
+  await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${ACCESS_TOKEN}`,
@@ -113,13 +185,12 @@ async function sendWhatsAppMessage(to, text) {
     },
     body: JSON.stringify({
       messaging_product: "whatsapp",
-      to: to,
-      text: { body: text }
-    })
+      to,
+      text: { body: message },
+    }),
   });
 }
 
-// ✅ Start the server
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`Server running at http://localhost:${port}`);
 });
