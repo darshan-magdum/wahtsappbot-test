@@ -109,17 +109,13 @@ app.post("/webhook", async (req, res) => {
   if (body.object) {
     const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-    // [1] Log the incoming WhatsApp message (raw)
-    console.log("[1] Raw WhatsApp Payload:", JSON.stringify(body, null, 2));
-
     if (message && message.text && message.from) {
       const userMessage = message.text.body;
       const from = message.from;
 
-      // [2] Log what WhatsApp received from user
-      console.log(`[2] WhatsApp received from user (${from}):`, userMessage);
+      console.log(`[2] Received from user (${from}): ${userMessage}`);
 
-      // Start or reuse conversation
+      // Ensure conversation ID for this user
       let conversationId;
       if (!conversations[from]) {
         const response = await fetch("https://directline.botframework.com/v3/directline/conversations", {
@@ -129,6 +125,7 @@ app.post("/webhook", async (req, res) => {
             "Content-Type": "application/json"
           }
         });
+
         const data = await response.json();
         conversationId = data.conversationId;
         conversations[from] = { conversationId, watermark: null };
@@ -139,17 +136,12 @@ app.post("/webhook", async (req, res) => {
         console.log(`[3] Existing conversation reused for user ${from}:`, conversationId);
       }
 
-      // Log the conversation ID in the bot's communication flow
-      console.log(`[4] Conversation ID used for message: ${conversationId}`);
-
       // Send message to Copilot bot
       const payloadToCopilot = {
         type: "message",
         from: { id: "user" },
         text: userMessage
       };
-
-      console.log("[5] Message sent to Copilot:", JSON.stringify(payloadToCopilot, null, 2));
 
       await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities`, {
         method: "POST",
@@ -160,46 +152,27 @@ app.post("/webhook", async (req, res) => {
         body: JSON.stringify(payloadToCopilot)
       });
 
-      // Wait for response
-      setTimeout(async () => {
-        const response = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${conversations[from].watermark || ""}`, {
-          headers: {
-            "Authorization": `Bearer ${directLineSecret}`
-          }
-        });
+      // Poll for bot response
+      const botMessages = await getBotResponse(conversationId);
 
-        const data = await response.json();
-        if (data.watermark) {
-          conversations[from].watermark = data.watermark;
-        }
+      const textMessages = botMessages
+        .filter(msg => msg.type === "message" && msg.text)
+        .map(msg => msg.text);
 
-        const botMessages = data.activities.filter(activity => activity.from.id !== "user");
-
-        // [6] Log all bot messages received
-        console.log("[6] Copilot bot responses received:", JSON.stringify(botMessages, null, 2));
-
-        const textMessages = botMessages
-          .filter(msg => msg.type === "message" && msg.text)
-          .map(msg => msg.text);
-
-        if (textMessages.length > 0) {
-          const finalReply = textMessages[textMessages.length - 1];
-          console.log(`[7] Final bot reply to send to WhatsApp user ${from}:`, finalReply);
-          await sendWhatsAppMessage(from, finalReply);
-        } else {
-          const summary = botMessages.map(msg => msg.type).join(", ");
-          console.log(`[7] No meaningful bot reply. Types: ${summary}`);
-          await sendWhatsAppMessage(from, "Sorry, I didn't understand that. Please try again.");
-        }
-      }, 1000);
+      if (textMessages.length > 0) {
+        const finalReply = textMessages[textMessages.length - 1];
+        await sendWhatsAppMessage(from, finalReply);
+      } else {
+        await sendWhatsAppMessage(from, "Sorry, I didn't understand that. Please try again.");
+      }
     }
 
     res.sendStatus(200);
   } else {
-    console.log("Webhook called without valid 'object' key.");
     res.sendStatus(404);
   }
 });
+
 
 // --- Send Message to WhatsApp User ---
 async function sendWhatsAppMessage(to, message) {
