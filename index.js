@@ -11,13 +11,6 @@ const PHONE_NUMBER_ID = '625219257346961'; // Replace with your number ID
 // Webhook verification token
 const VERIFY_TOKEN = 'WhatsAppBot123';  // Use this in your Meta app webhook settings
 
-// Direct Line credentials
-const DIRECTLINE_SECRET = "4bEHl4WbbsPZnu4Tq3APzAfGbKMVBM2uUEDw2dXyzZ4MDTZSPc03JQQJ99BEAC77bzfAArohAAABAZBS0118.G46ntCLcGwB772orOgAsylaVC25MW5sWNN8ZlS1vYlzxOMGQmFNgJQQJ99BEAC77bzfAArohAAABAZBS3CCb"; // Replace with your actual Direct Line Secret
-
-const DIRECTLINE_API_URL = "https://directline.botframework.com/v3/directline/conversations";
-// Store conversation ID globally
-let conversationId = null;
-
 // Set the port
 const PORT = process.env.PORT || 3000;
 
@@ -48,8 +41,8 @@ app.post('/webhook', async (req, res) => {
           if (message.type === "text") {
             const messageText = message.text?.body;
             if (messageText) {
-              const botReply = await sendToBot(messageText);
-              sendMessage(senderId, botReply);
+              // Send a simple reply to WhatsApp user
+              sendMessage(senderId, `You said: ${messageText}`);
             }
 
           // Handle voice messages
@@ -131,66 +124,12 @@ async function handleVoiceMessage(mediaId, senderId) {
     const text = azureRes.data.DisplayText;
     console.log("Transcribed Text:", text);
 
-    // Step 4: Forward transcribed text to your bot
-    const botReply = await sendToBot(text);
-    sendMessage(senderId, botReply);
+    // Step 4: Send transcribed text as a reply
+    sendMessage(senderId, `You said: ${text}`);
 
   } catch (err) {
     console.error("Error handling voice message:", err.response?.data || err.message);
     sendMessage(senderId, "Sorry, I couldn't process your voice message.");
-  }
-}
-
-// Send message to Copilot Studio bot via Direct Line
-let watermark = null;
-
-async function sendToBot(userMessage) {
-  try {
-    if (!conversationId) {
-      const response = await axios.post(DIRECTLINE_API_URL, {}, {
-        headers: { Authorization: `Bearer ${DIRECTLINE_SECRET}` },
-      });
-      conversationId = response.data.conversationId;
-      console.log("Conversation Created:", conversationId);
-    }
-
-    // Send message to bot
-    await axios.post(`${DIRECTLINE_API_URL}/${conversationId}/activities`, {
-      type: "message",
-      from: { id: "user1" },
-      text: userMessage,
-    }, {
-      headers: { Authorization: `Bearer ${DIRECTLINE_SECRET}` },
-    });
-
-    // Wait for bot reply (polling)
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
-
-    const url = watermark
-      ? `${DIRECTLINE_API_URL}/${conversationId}/activities?watermark=${watermark}`
-      : `${DIRECTLINE_API_URL}/${conversationId}/activities`;
-
-    const botResponse = await axios.get(url, {
-      headers: { Authorization: `Bearer ${DIRECTLINE_SECRET}` },
-    });
-
-    watermark = botResponse.data.watermark;
-
-    const botMessages = botResponse.data.activities.filter(
-      (activity) => activity.from.id !== "user1" && activity.type === "message"
-    );
-
-    if (botMessages.length > 0) {
-      const botReply = botMessages.map(m => m.text).join('\n');
-      console.log("Bot Reply:", botReply);
-      return botReply;
-    } else {
-      return "No new response from bot";
-    }
-
-  } catch (error) {
-    console.error("Error in sendToBot:", error.response?.data || error.message);
-    return "Failed to send message to bot";
   }
 }
 
