@@ -111,10 +111,10 @@ app.post("/webhook", async (req, res) => {
     const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     if (message && message.text && message.from) {
-      const userMessage = message.text.body;
+      const userMessage = message.text.body.trim();
       const from = message.from;
 
-      console.log(`Received message from WhatsApp: ${userMessage}`); // Log user input
+      console.log(`Received message from WhatsApp: ${userMessage}`);
 
       // Start or reuse conversation
       let conversationId;
@@ -133,7 +133,7 @@ app.post("/webhook", async (req, res) => {
         conversationId = conversations[from].conversationId;
       }
 
-      // Send message to bot
+      // Send user message to bot
       await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities`, {
         method: "POST",
         headers: {
@@ -147,7 +147,7 @@ app.post("/webhook", async (req, res) => {
         })
       });
 
-      // Wait briefly to let bot reply
+      // Wait for bot response
       setTimeout(async () => {
         const response = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${conversations[from].watermark || ""}`, {
           headers: {
@@ -160,14 +160,17 @@ app.post("/webhook", async (req, res) => {
           conversations[from].watermark = data.watermark;
         }
 
-        const botMessages = data.activities.filter(activity => activity.from.id !== "user");
+        const botMessages = data.activities
+          .filter(activity => activity.from.id !== "user" && activity.type === "message" && activity.text)
+          .map(activity => activity.text)
+          .filter((text, index, self) => self.indexOf(text) === index); // Remove duplicate messages
 
-        // Log and send only text-based bot responses
-        for (let msg of botMessages) {
-          if (msg.type === "message" && msg.text) {
-            console.log(`Bot response: ${msg.text}`); // Log bot response
-            await sendWhatsAppMessage(from, msg.text);
-          }
+        if (botMessages.length > 0) {
+          const finalReply = botMessages[botMessages.length - 1]; // Send only the latest meaningful message
+          console.log(`Bot response: ${finalReply}`);
+          await sendWhatsAppMessage(from, finalReply);
+        } else {
+          console.log("No meaningful bot response found.");
         }
       }, 1000);
     }
@@ -177,6 +180,7 @@ app.post("/webhook", async (req, res) => {
     res.sendStatus(404);
   }
 });
+
 
 // --- Send Message to WhatsApp User ---
 async function sendWhatsAppMessage(to, message) {
