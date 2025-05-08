@@ -8,7 +8,6 @@ const port = 5000;
 
 const conversations = {};
 
-
 const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1';
 const PHONE_NUMBER_ID = '625219257346961';
 const VERIFY_TOKEN = 'WhatsAppBot123';
@@ -140,6 +139,9 @@ app.post("/webhook", async (req, res) => {
         console.log(`[3] Existing conversation reused for user ${from}:`, conversationId);
       }
 
+      // Log the conversation ID in the bot's communication flow
+      console.log(`[4] Conversation ID used for message: ${conversationId}`);
+
       // Send message to Copilot bot
       const payloadToCopilot = {
         type: "message",
@@ -147,7 +149,7 @@ app.post("/webhook", async (req, res) => {
         text: userMessage
       };
 
-      console.log("[4] Message sent to Copilot:", JSON.stringify(payloadToCopilot, null, 2));
+      console.log("[5] Message sent to Copilot:", JSON.stringify(payloadToCopilot, null, 2));
 
       await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities`, {
         method: "POST",
@@ -173,8 +175,8 @@ app.post("/webhook", async (req, res) => {
 
         const botMessages = data.activities.filter(activity => activity.from.id !== "user");
 
-        // [5] Log all bot messages received
-        console.log("[5] Copilot bot responses received:", JSON.stringify(botMessages, null, 2));
+        // [6] Log all bot messages received
+        console.log("[6] Copilot bot responses received:", JSON.stringify(botMessages, null, 2));
 
         const textMessages = botMessages
           .filter(msg => msg.type === "message" && msg.text)
@@ -182,11 +184,11 @@ app.post("/webhook", async (req, res) => {
 
         if (textMessages.length > 0) {
           const finalReply = textMessages[textMessages.length - 1];
-          console.log(`[6] Final bot reply to send to WhatsApp user ${from}:`, finalReply);
+          console.log(`[7] Final bot reply to send to WhatsApp user ${from}:`, finalReply);
           await sendWhatsAppMessage(from, finalReply);
         } else {
           const summary = botMessages.map(msg => msg.type).join(", ");
-          console.log(`[6] No meaningful bot reply. Types: ${summary}`);
+          console.log(`[7] No meaningful bot reply. Types: ${summary}`);
           await sendWhatsAppMessage(from, "Sorry, I didn't understand that. Please try again.");
         }
       }, 1000);
@@ -198,9 +200,6 @@ app.post("/webhook", async (req, res) => {
     res.sendStatus(404);
   }
 });
-
-
-
 
 // --- Send Message to WhatsApp User ---
 async function sendWhatsAppMessage(to, message) {
