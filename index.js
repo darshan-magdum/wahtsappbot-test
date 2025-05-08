@@ -14,8 +14,9 @@ const PHONE_NUMBER_ID = '625219257346961'; // Replace with your number ID
 // Webhook verification token
 const VERIFY_TOKEN = 'WhatsAppBot123';  // Use this in your Meta app webhook settings
 
-// Direct Line secret for Copilot Studio bot
-const directLineSecret = "YOUR_DIRECT_LINE_SECRET"; // Replace with your actual secret
+// Direct Line credentials
+const directLineSecret = "4bEHl4WbbsPZnu4Tq3APzAfGbKMVBM2uUEDw2dXyzZ4MDTZSPc03JQQJ99BEAC77bzfAArohAAABAZBS0118.G46ntCLcGwB772orOgAsylaVC25MW5sWNN8ZlS1vYlzxOMGQmFNgJQQJ99BEAC77bzfAArohAAABAZBS3CCb"; // Replace with your actual Direct Line Secret
+
 
 // Set up port
 const PORT = process.env.PORT || 3000;
