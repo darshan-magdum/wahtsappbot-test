@@ -6,12 +6,13 @@ const bodyParser = require("body-parser");
 const app = express();
 const port = 5000;
 
+// Declare a conversation store
+const conversations = {};
 
 const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1';
 const PHONE_NUMBER_ID = '625219257346961';
 const VERIFY_TOKEN = 'WhatsAppBot123';
 const directLineSecret = 'qEyAQSHjjFw.N4URSFFvMqlgyBQT-FFmZoeDP4YCc_KgKNVTPUAEXds'; // <-- Replace this
-
 
 // --- Middleware ---
 app.use(cors());
@@ -113,7 +114,7 @@ app.post("/webhook", async (req, res) => {
       const userMessage = message.text.body;
       const from = message.from;
 
-      console.log(`Received message from WhatsApp: ${userMessage}`);
+      console.log(`Received message from WhatsApp: ${userMessage}`); // Log user input
 
       // Start or reuse conversation
       let conversationId;
@@ -160,8 +161,11 @@ app.post("/webhook", async (req, res) => {
         }
 
         const botMessages = data.activities.filter(activity => activity.from.id !== "user");
+
+        // Log and send only text-based bot responses
         for (let msg of botMessages) {
-          if (msg.text) {
+          if (msg.type === "message" && msg.text) {
+            console.log(`Bot response: ${msg.text}`); // Log bot response
             await sendWhatsAppMessage(from, msg.text);
           }
         }
