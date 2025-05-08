@@ -1,4 +1,3 @@
-// Import required libraries
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
@@ -16,7 +15,6 @@ const VERIFY_TOKEN = 'WhatsAppBot123';  // Use this in your Meta app webhook set
 const DIRECTLINE_SECRET = "4bEHl4WbbsPZnu4Tq3APzAfGbKMVBM2uUEDw2dXyzZ4MDTZSPc03JQQJ99BEAC77bzfAArohAAABAZBS0118.G46ntCLcGwB772orOgAsylaVC25MW5sWNN8ZlS1vYlzxOMGQmFNgJQQJ99BEAC77bzfAArohAAABAZBS3CCb"; // Replace with your actual Direct Line Secret
 
 const DIRECTLINE_API_URL = "https://directline.botframework.com/v3/directline/conversations";
-
 // Store conversation ID globally
 let conversationId = null;
 
@@ -75,7 +73,6 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-
 // Send message to WhatsApp user
 function sendMessage(to, message) {
   axios
@@ -124,7 +121,7 @@ async function handleVoiceMessage(mediaId, senderId) {
       audioRes.data,
       {
         headers: {
-          'Ocp-Apim-Subscription-Key': '40K84vS2b0E637v9J0qtz4MEpA7bsjaoRBg9DjQY9A3wjcptJ9o1JQQJ99BCACYeBjFXJ3w3AAAYACOG2sOr',
+          'Ocp-Apim-Subscription-Key': '40K84vS2b0E637v9J0qtz4MEpA7bsjaoRBg9DjQY9A3wjcptJ9o1JQQJ99BCACYeBjFXJ3w3AAAYACOG2sOr', // Replace with your Azure subscription key
           'Content-Type': 'audio/ogg; codecs=opus',
           'Transfer-Encoding': 'chunked',
         },
@@ -143,7 +140,6 @@ async function handleVoiceMessage(mediaId, senderId) {
     sendMessage(senderId, "Sorry, I couldn't process your voice message.");
   }
 }
-
 
 // Send message to Copilot Studio bot via Direct Line
 let watermark = null;
@@ -198,10 +194,9 @@ async function sendToBot(userMessage) {
   }
 }
 
-
 // Test endpoint
 app.get('/greet', (req, res) => {
-  res.status(200).json({ message: 'Hi, Dan2!' });
+  res.status(200).json({ message: 'Hi!' });
 });
 
 // Start the server
