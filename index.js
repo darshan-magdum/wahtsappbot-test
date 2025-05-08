@@ -13,7 +13,7 @@ const PHONE_NUMBER_ID = '625219257346961'; // Replace with your number ID
 const VERIFY_TOKEN = 'WhatsAppBot123';  // Use this in your Meta app webhook settings
 
 // Direct Line credentials
-const DIRECTLINE_SECRET = "qEyAQSHjjFw.o4MGhA9CqzvEC9mUk5Slhupl-8Hx2ntf7ZTlXPhvLmU"; // Replace with your actual Direct Line Secret
+const DIRECTLINE_SECRET = "7AnlPe7Cf9aKl7VF0d9ojQXfFHojdNGB9A1DEOmTwORvysH9suuCJQQJ99BEAC5T7U2AArohAAABAZBSaNYJ.72slLURw1OaPUJ24MvBQRmlvlaImLV5uN8rPI3m2elXfdZPG5cZFJQQJ99BEAC5T7U2AArohAAABAZBS1KTB"; // Replace with your actual Direct Line Secret
 const DIRECTLINE_API_URL = "https://directline.botframework.com/v3/directline/conversations";
 
 // Store conversation ID globally
