@@ -146,9 +146,10 @@ async function handleVoiceMessage(mediaId, senderId) {
 
 
 // Send message to Copilot Studio bot via Direct Line
+let watermark = null;
+
 async function sendToBot(userMessage) {
   try {
-    // Start or continue conversation with Direct Line
     if (!conversationId) {
       const response = await axios.post(DIRECTLINE_API_URL, {}, {
         headers: { Authorization: `Bearer ${DIRECTLINE_SECRET}` },
@@ -157,37 +158,46 @@ async function sendToBot(userMessage) {
       console.log("Conversation Created:", conversationId);
     }
 
-    // Send message to the bot via Direct Line
+    // Send message to bot
     await axios.post(`${DIRECTLINE_API_URL}/${conversationId}/activities`, {
       type: "message",
-      from: { id: "user1" }, // User ID
+      from: { id: "user1" },
       text: userMessage,
     }, {
       headers: { Authorization: `Bearer ${DIRECTLINE_SECRET}` },
     });
 
-    // Poll for the bot's response
-    const botResponse = await axios.get(`${DIRECTLINE_API_URL}/${conversationId}/activities`, {
+    // Wait for bot reply (polling)
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+
+    const url = watermark
+      ? `${DIRECTLINE_API_URL}/${conversationId}/activities?watermark=${watermark}`
+      : `${DIRECTLINE_API_URL}/${conversationId}/activities`;
+
+    const botResponse = await axios.get(url, {
       headers: { Authorization: `Bearer ${DIRECTLINE_SECRET}` },
     });
 
-    // Find the bot's response
+    watermark = botResponse.data.watermark;
+
     const botMessages = botResponse.data.activities.filter(
-      (activity) => activity.from.id !== "user1"
+      (activity) => activity.from.id !== "user1" && activity.type === "message"
     );
 
     if (botMessages.length > 0) {
-      const botReply = botMessages[botMessages.length - 1].text;
+      const botReply = botMessages.map(m => m.text).join('\n');
       console.log("Bot Reply:", botReply);
-      return botReply; // Send bot response back to user
+      return botReply;
     } else {
-      return "No response from bot";
+      return "No new response from bot";
     }
+
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error in sendToBot:", error.response?.data || error.message);
     return "Failed to send message to bot";
   }
 }
+
 
 // Test endpoint
 app.get('/greet', (req, res) => {
