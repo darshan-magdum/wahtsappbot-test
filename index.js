@@ -110,11 +110,15 @@ app.post("/webhook", async (req, res) => {
   if (body.object) {
     const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
+    // [1] Log the incoming WhatsApp message (raw)
+    console.log("[1] Raw WhatsApp Payload:", JSON.stringify(body, null, 2));
+
     if (message && message.text && message.from) {
       const userMessage = message.text.body;
       const from = message.from;
 
-      console.log(`Received message from WhatsApp: ${userMessage}`);
+      // [2] Log what WhatsApp received from user
+      console.log(`[2] WhatsApp received from user (${from}):`, userMessage);
 
       // Start or reuse conversation
       let conversationId;
@@ -129,25 +133,32 @@ app.post("/webhook", async (req, res) => {
         const data = await response.json();
         conversationId = data.conversationId;
         conversations[from] = { conversationId, watermark: null };
+
+        console.log(`[3] New Direct Line conversation started for user ${from}:`, conversationId);
       } else {
         conversationId = conversations[from].conversationId;
+        console.log(`[3] Existing conversation reused for user ${from}:`, conversationId);
       }
 
-      // Send message to bot
+      // Send message to Copilot bot
+      const payloadToCopilot = {
+        type: "message",
+        from: { id: "user" },
+        text: userMessage
+      };
+
+      console.log("[4] Message sent to Copilot:", JSON.stringify(payloadToCopilot, null, 2));
+
       await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${directLineSecret}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          type: "message",
-          from: { id: "user" },
-          text: userMessage
-        })
+        body: JSON.stringify(payloadToCopilot)
       });
 
-      // Wait briefly to let bot respond
+      // Wait for response
       setTimeout(async () => {
         const response = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${conversations[from].watermark || ""}`, {
           headers: {
@@ -162,12 +173,8 @@ app.post("/webhook", async (req, res) => {
 
         const botMessages = data.activities.filter(activity => activity.from.id !== "user");
 
-        if (botMessages.length === 0) {
-          console.log("No activities from bot.");
-          return;
-        }
-
-        console.log("All bot activities:", botMessages);
+        // [5] Log all bot messages received
+        console.log("[5] Copilot bot responses received:", JSON.stringify(botMessages, null, 2));
 
         const textMessages = botMessages
           .filter(msg => msg.type === "message" && msg.text)
@@ -175,11 +182,11 @@ app.post("/webhook", async (req, res) => {
 
         if (textMessages.length > 0) {
           const finalReply = textMessages[textMessages.length - 1];
-          console.log(`Bot response: ${finalReply}`);
+          console.log(`[6] Final bot reply to send to WhatsApp user ${from}:`, finalReply);
           await sendWhatsAppMessage(from, finalReply);
         } else {
           const summary = botMessages.map(msg => msg.type).join(", ");
-          console.log(`No meaningful text. Bot sent: ${summary}`);
+          console.log(`[6] No meaningful bot reply. Types: ${summary}`);
           await sendWhatsAppMessage(from, "Sorry, I didn't understand that. Please try again.");
         }
       }, 1000);
@@ -187,9 +194,11 @@ app.post("/webhook", async (req, res) => {
 
     res.sendStatus(200);
   } else {
+    console.log("Webhook called without valid 'object' key.");
     res.sendStatus(404);
   }
 });
+
 
 
 
