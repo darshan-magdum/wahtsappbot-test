@@ -1,21 +1,31 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
+const fetch = require("node-fetch");
+const cors = require("cors");
 
 const app = express();
+const port = 5000;
 
-// Set your WhatsApp Business API credentials
+// WhatsApp Business API credentials
 const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1'; // Replace with your actual token
 const PHONE_NUMBER_ID = '625219257346961'; // Replace with your number ID
 
 // Webhook verification token
 const VERIFY_TOKEN = 'WhatsAppBot123';  // Use this in your Meta app webhook settings
 
-// Set the port
+// Direct Line secret for Copilot Studio bot
+const directLineSecret = "YOUR_DIRECT_LINE_SECRET"; // Replace with your actual secret
+
+// Set up port
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+app.use(cors());
 app.use(bodyParser.json());
+
+// Conversations to track state with Copilot Studio bot
+let conversations = {};
 
 // Webhook Verification (GET)
 app.get('/webhook', (req, res) => {
@@ -26,7 +36,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Receiving Messages (POST)
+// Receiving Messages from WhatsApp (POST)
 app.post('/webhook', async (req, res) => {
   const body = req.body;
 
@@ -41,10 +51,9 @@ app.post('/webhook', async (req, res) => {
           if (message.type === "text") {
             const messageText = message.text?.body;
             if (messageText) {
-              // Send a simple reply to WhatsApp user
-              sendMessage(senderId, `You said: ${messageText}`);
+              // Send the text message to the Copilot bot
+              startConversation(senderId, messageText);
             }
-
           // Handle voice messages
           } else if (message.type === "audio") {
             const mediaId = message.audio?.id;
@@ -65,6 +74,76 @@ app.post('/webhook', async (req, res) => {
     res.sendStatus(404);
   }
 });
+
+// Function to start a conversation with the Copilot Studio bot
+async function startConversation(senderId, messageText) {
+  try {
+    // Start a new conversation with the Copilot bot
+    const response = await fetch("https://directline.botframework.com/v3/directline/conversations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${directLineSecret}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    const data = await response.json();
+    const conversationId = data.conversationId;
+    conversations[conversationId] = { watermark: null };
+
+    // Send the user's message to the Copilot bot
+    await sendMessageToBot(conversationId, messageText);
+
+    // Get and send bot's response
+    await pollBotMessages(conversationId, senderId);
+  } catch (error) {
+    console.error("Error starting conversation with Copilot bot:", error);
+  }
+}
+
+// Send message to the Copilot bot
+async function sendMessageToBot(conversationId, messageText) {
+  try {
+    await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${directLineSecret}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        type: "message",
+        from: { id: "user" },
+        text: messageText
+      })
+    });
+  } catch (error) {
+    console.error("Error sending message to Copilot bot:", error);
+  }
+}
+
+// Poll bot responses
+async function pollBotMessages(conversationId, senderId) {
+  const watermark = conversations[conversationId]?.watermark || "";
+  try {
+    const response = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${watermark}`, {
+      headers: {
+        "Authorization": `Bearer ${directLineSecret}`
+      }
+    });
+
+    const data = await response.json();
+    if (data.watermark) {
+      conversations[conversationId].watermark = data.watermark;
+    }
+
+    const botMessages = data.activities.filter(activity => activity.from.id !== "user");
+    if (botMessages.length > 0) {
+      sendMessage(senderId, botMessages[0].text);
+    }
+  } catch (error) {
+    console.error("Error receiving messages from Copilot bot:", error);
+  }
+}
 
 // Send message to WhatsApp user
 function sendMessage(to, message) {
@@ -109,6 +188,7 @@ async function handleVoiceMessage(mediaId, senderId) {
       responseType: 'arraybuffer',
     });
 
+    // Step 3: Send audio to Azure's Speech API for recognition
     const azureRes = await axios.post(
       `https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`,
       audioRes.data,
