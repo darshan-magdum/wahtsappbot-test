@@ -103,6 +103,7 @@ function sendMessage(to, message) {
 // Function to handle voice messages
 async function handleVoiceMessage(mediaId, senderId) {
   try {
+    // Step 1: Get media URL from WhatsApp API
     const mediaUrlRes = await axios.get(
       `https://graph.facebook.com/v17.0/${mediaId}`,
       {
@@ -111,6 +112,7 @@ async function handleVoiceMessage(mediaId, senderId) {
     );
     const mediaUrl = mediaUrlRes.data.url;
 
+    // Step 2: Download the actual voice message
     const audioRes = await axios.get(mediaUrl, {
       headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
       responseType: 'arraybuffer',
@@ -129,13 +131,18 @@ async function handleVoiceMessage(mediaId, senderId) {
     );
 
     const text = azureRes.data.DisplayText;
-    console.log("Transcribed:", text);
-    forwardToCopilotBot(senderId, text);
+    console.log("Transcribed Text:", text);
+
+    // Step 4: Forward transcribed text to your bot
+    const botReply = await sendToBot(text);
+    sendMessage(senderId, botReply);
+
   } catch (err) {
-    console.error("Error handling voice:", err.response?.data || err.message);
-    sendMessage(senderId, `Sorry, I couldn't understand your voice message.`);
+    console.error("Error handling voice message:", err.response?.data || err.message);
+    sendMessage(senderId, "Sorry, I couldn't process your voice message.");
   }
 }
+
 
 // Send message to Copilot Studio bot via Direct Line
 async function sendToBot(userMessage) {
