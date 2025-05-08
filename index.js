@@ -196,7 +196,14 @@ async function sendWhatsAppMessage(to, message) {
 
 // --- Get Bot Response ---
 async function getBotResponse(conversationId) {
-  const watermark = conversations[conversationId]?.watermark || "";
+  // Ensure the conversation exists
+  const conversation = conversations[conversationId];
+  if (!conversation) {
+    console.error(`No conversation found for conversationId: ${conversationId}`);
+    return [];
+  }
+
+  const watermark = conversation.watermark || "";
 
   try {
     const response = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${watermark}`, {
@@ -206,16 +213,20 @@ async function getBotResponse(conversationId) {
     });
 
     const data = await response.json();
+
+    // Update the watermark if it's available
     if (data.watermark) {
       conversations[conversationId].watermark = data.watermark;
     }
 
+    // Filter out only bot messages
     return data.activities.filter(activity => activity.from.id !== "user");
   } catch (error) {
     console.error("Failed to get bot response:", error);
     return [];
   }
 }
+
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
