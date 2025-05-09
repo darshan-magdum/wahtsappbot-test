@@ -17,7 +17,7 @@ const VERIFY_TOKEN = 'WhatsAppBot123';
 
 // Direct Line API
 const BASE_URL = "https://directline.botframework.com/v3/directline";
-const DIRECT_LINE_SECRET = "7AnlPe7Cf9aKl7VF0d9ojQXfFHojdNGB9A1DEOmTwORvysH9suuCJQQJ99BEAC5T7U2AArohAAABAZBSaNYJ.72slLURw1OaPUJ24MvBQRmlvlaImLV5uN8rPI3m2elXfdZPG5cZFJQQJ99BEAC5T7U2AArohAAABAZBS1KTB"; // Replace with your Direct Line Secret
+const DIRECT_LINE_SECRET = "qEyAQSHjjFw.o4MGhA9CqzvEC9mUk5Slhupl-8Hx2ntf7ZTlXPhvLmU"; // Replace with your Direct Line Secret
 
 
 // Store conversations
