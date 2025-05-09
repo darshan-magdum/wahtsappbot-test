@@ -1,8 +1,3 @@
-
-
-
-
-
 const express = require("express");
 const bodyParser = require("body-parser");
 const axios = require("axios");
@@ -48,7 +43,29 @@ app.post("/webhook", async (req, res) => {
     if (!messageObj) return res.sendStatus(200); // No message to process
 
     const from = messageObj.from;
-    const userText = messageObj.text?.body;
+    //************************************************************************************************************************
+    const body = req.body;
+    let userText
+    body.entry.forEach(entry => {
+      entry.changes.forEach(change => {
+        const message = change.value?.messages?.[0];
+        if (message) {
+          const senderId = message.from;
+          const messageText = message.text?.body;
+          const messageAudio = message.audio?.id;
+          
+          if (messageText) {
+             userText= sendMessage(senderId, `Thanks for your message: ${messageText}`);
+          } else if (messageAudio) {
+            userText= handleVoiceMessage(messageAudio, senderId);
+          }
+          
+        }
+      });
+    });
+    //************************************************************************************************************************
+
+    // const userText = messageObj.text?.body;
 
     // Start or resume Direct Line conversation
     if (!conversations[from]) {
@@ -152,6 +169,80 @@ app.post("/webhook", async (req, res) => {
     res.sendStatus(500);
   }
 });
+
+// send message function
+function sendMessage(to, message) {
+  axios
+    .post(
+      `https://graph.facebook.com/v13.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: to,
+        text: { body: message },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+    .then((response) => {
+      console.log('Message sent:', response.data);
+    return response.data
+    })
+    .catch((error) => {
+      return console.error('Error sending message:', error.response?.data || error.message);
+    });
+}
+
+//handleVoiceMessage function
+async function handleVoiceMessage(mediaId, senderId) {
+    try {
+      // Step 1: Get audio URL from Meta API
+      const mediaUrlRes = await axios.get(
+        `https://graph.facebook.com/v17.0/${mediaId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${ACCESS_TOKEN}`,
+          },
+        }
+      );
+      const mediaUrl = mediaUrlRes.data.url;
+  
+      // Step 2: Download audio binary
+      const audioRes = await axios.get(mediaUrl, {
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+        },
+        responseType: 'arraybuffer',
+      });
+  
+      // Step 3: Send audio to Azure Speech-to-Text
+      const azureRes = await axios.post(
+        `https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`,
+        audioRes.data,
+        {
+          headers: {
+            'Ocp-Apim-Subscription-Key': '40K84vS2b0E637v9J0qtz4MEpA7bsjaoRBg9DjQY9A3wjcptJ9o1JQQJ99BCACYeBjFXJ3w3AAAYACOG2sOr',
+            'Content-Type': 'audio/ogg; codecs=opus',
+            'Transfer-Encoding': 'chunked',
+          },
+        }
+      );
+  
+      const text = azureRes.data.DisplayText;
+      console.log("Transcribed:", text);
+  
+      // Step 4: Reply to sender
+      sendMessage(senderId, `${text}`);
+    } catch (err) {
+      console.error("Error handling voice:", err.response?.data || err.message);
+      sendMessage(senderId, `Sorry, I couldn't understand your voice message.`);
+    }
+  }
+  
+
 
 // ✅ Start Server
 app.listen(port, () => {
