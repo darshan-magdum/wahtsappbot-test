@@ -44,7 +44,7 @@ app.post("/webhook", async (req, res) => {
     if (message && message.text) {
       const from = message.from; // WhatsApp user number
       const userText = message.text.body;
-      console.log(`🧑 [${from}]: ${userText}`);
+      console.log(`🧑 [${from}] User Input: ${userText}`);
 
       // Start or reuse conversation
       if (!conversations[from]) {
@@ -60,11 +60,13 @@ app.post("/webhook", async (req, res) => {
           conversationId: convoData.conversationId,
           watermark: null
         };
+        console.log(`🤖 Created new conversation for ${from}`);
       }
 
       const conversationId = conversations[from].conversationId;
 
-      // Send user message to bot
+      // Send user message to Copilot (Direct Line Bot)
+      console.log(`🤖 Sending message to Copilot: ${userText}`);
       await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities`, {
         method: "POST",
         headers: {
@@ -78,7 +80,7 @@ app.post("/webhook", async (req, res) => {
         })
       });
 
-      // Wait and get bot response
+      // Wait and get bot response from Copilot
       setTimeout(async () => {
         const watermark = conversations[from].watermark || "";
         const botRes = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${watermark}`, {
@@ -89,16 +91,18 @@ app.post("/webhook", async (req, res) => {
         const data = await botRes.json();
 
         if (data.watermark) {
-          conversations[from].watermark = data.watermark;  // Update watermark only after receiving bot response
+          conversations[from].watermark = data.watermark;  // Update watermark after receiving bot response
         }
 
         const botMessages = data.activities.filter(a => a.from.id !== "user" && a.text);
+        console.log(`🤖 Bot Response from Copilot: ${botMessages.map(msg => msg.text).join(', ')}`);
 
+        // Send bot's response to WhatsApp
         for (const msg of botMessages) {
+          console.log(`➡️ Sending to WhatsApp: ${msg.text}`);
           await sendWhatsAppMessage(from, msg.text);
-          console.log(`🤖 [BOT]: ${msg.text}`);
         }
-      }, 1000); // short delay to let bot respond
+      }, 2000); // extended delay to ensure the message is processed correctly
     }
 
     res.sendStatus(200);
@@ -109,6 +113,7 @@ app.post("/webhook", async (req, res) => {
 
 // Send message to WhatsApp via Meta Cloud API
 async function sendWhatsAppMessage(to, message) {
+  console.log(`➡️ Sending to WhatsApp ${to}: ${message}`);
   await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
     method: "POST",
     headers: {
