@@ -45,24 +45,25 @@ app.post("/webhook", async (req, res) => {
     const from = messageObj.from;
     //************************************************************************************************************************
     const body = req.body;
-    let userText
-    body.entry.forEach(entry => {
-      entry.changes.forEach(change => {
-        const message = change.value?.messages?.[0];
-        if (message) {
-          const senderId = message.from;
-          const messageText = message.text?.body;
-          const messageAudio = message.audio?.id;
-          
-          if (messageText) {
-             userText= messageText;
-          } else if (messageAudio) {
-            userText= handleVoiceMessage(messageAudio, senderId);
-          }
-          
-        }
-      });
-    });
+   let userText;
+for (const entry of body.entry) {
+  for (const change of entry.changes) {
+    const message = change.value?.messages?.[0];
+    if (message) {
+      const senderId = message.from;
+      const messageText = message.text?.body;
+      const messageAudio = message.audio?.id;
+
+      if (messageText) {
+        userText = messageText;
+      } else if (messageAudio) {
+        userText = await handleVoiceMessage(messageAudio, senderId); // ✅ FIXED
+      }
+    }
+  }
+}
+   
+    
     //************************************************************************************************************************
 
     // const userText = messageObj.text?.body;
