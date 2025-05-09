@@ -5,13 +5,15 @@ const bodyParser = require("body-parser");
 const app = express();
 const port = 5000;
 
-// WhatsApp Cloud API details
-const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1';
-const PHONE_NUMBER_ID = '625219257346961';
-const VERIFY_TOKEN = 'WhatsAppBot123';
+// Set your WhatsApp Business API credentials
+const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1'; // Replace with your actual token
+const PHONE_NUMBER_ID = '625219257346961'; // Replace with your number ID
 
-// Direct Line details
-const DIRECT_LINE_SECRET = '4bEHl4WbbsPZnu4Tq3APzAfGbKMVBM2uUEDw2dXyzZ4MDTZSPc03JQQJ99BEAC77bzfAArohAAABAZBS0118.G46ntCLcGwB772orOgAsylaVC25MW5sWNN8ZlS1vYlzxOMGQmFNgJQQJ99BEAC77bzfAArohAAABAZBS3CCb';
+// Webhook verification token
+const VERIFY_TOKEN = 'WhatsAppBot123';  // Use this in your Meta app webhook settings
+
+// Direct Line credentials
+const DIRECT_LINE_SECRET = "4bEHl4WbbsPZnu4Tq3APzAfGbKMVBM2uUEDw2dXyzZ4MDTZSPc03JQQJ99BEAC77bzfAArohAAABAZBS0118.G46ntCLcGwB772orOgAsylaVC25MW5sWNN8ZlS1vYlzxOMGQmFNgJQQJ99BEAC77bzfAArohAAABAZBS3CCb"; // Replace with your actual Direct Line Secret
 const conversations = {}; // Store convos by user
 
 app.use(bodyParser.json());
@@ -85,7 +87,10 @@ app.post("/webhook", async (req, res) => {
           }
         });
         const data = await botRes.json();
-        conversations[from].watermark = data.watermark;
+
+        if (data.watermark) {
+          conversations[from].watermark = data.watermark;  // Update watermark only after receiving bot response
+        }
 
         const botMessages = data.activities.filter(a => a.from.id !== "user" && a.text);
 
