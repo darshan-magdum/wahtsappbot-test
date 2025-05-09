@@ -244,6 +244,81 @@ async function handleVoiceMessage(mediaId, senderId) {
   }
   
 
+  //  In-memory storage
+const users = {
+  '12345': { name: 'John Doe', mobile: '9876543210', balance: 0, movies: [] },
+  '67890': { name: 'Jane Smith', mobile: '9123456789', balance: 50, movies: [] }
+};
+
+const verifiedUsers = new Set();
+
+// Step 1: Verify Smartcard Number
+app.post('/verify-smartcard', (req, res) => {
+  const { smartcardNumber } = req.body;
+  if (users[smartcardNumber]) {
+    res.json({ message: 'Smartcard verified. Please enter mobile number.' });
+  } else {
+    res.status(400).json({ error: 'Invalid smartcard number.' });
+  }
+});
+
+// Step 2: Verify Mobile Number
+app.post('/verify-mobile', (req, res) => {
+  const { smartcardNumber, mobileNumber } = req.body;
+  const user = users[smartcardNumber];
+
+  if (user && user.mobile === mobileNumber) {
+    verifiedUsers.add(smartcardNumber);
+    res.json({
+      message: 'Verification successful.',
+      name: user.name,
+      smartcardNumber,
+      mobileNumber
+    });
+  } else {
+    res.status(400).json({ error: 'Mobile number does not match.' });
+  }
+});
+
+// Usecase 1: Add Movie
+app.post('/add-movie', (req, res) => {
+  const { smartcardNumber, movieName } = req.body;
+
+  if (!verifiedUsers.has(smartcardNumber)) {
+    return res.status(401).json({ error: 'User not verified.' });
+  }
+
+  users[smartcardNumber].movies.push(movieName);
+  res.json({ message: `Movie '${movieName}' added.` });
+});
+
+// Usecase 2: Add Top-Up Balance
+app.post('/add-balance', (req, res) => {
+  const { smartcardNumber, amount } = req.body;
+
+  if (!verifiedUsers.has(smartcardNumber)) {
+    return res.status(401).json({ error: 'User not verified.' });
+  }
+
+  users[smartcardNumber].balance += amount;
+  res.json({ message: `₹${amount} added.`, totalBalance: users[smartcardNumber].balance });
+});
+
+// Usecase 3: Get Balance
+app.get('/get-balance', (req, res) => {
+  const { smartcardNumber } = req.query;
+
+  if (!verifiedUsers.has(smartcardNumber)) {
+    return res.status(401).json({ error: 'User not verified.' });
+  }
+
+  res.json({
+    balance: users[smartcardNumber].balance,
+    movies: users[smartcardNumber].movies
+  });
+});
+
+
 
 // ✅ Start Server
 app.listen(port, () => {
