@@ -5,6 +5,7 @@ const bodyParser = require("body-parser");
 const app = express();
 const port = 5000;
 
+// WhatsApp Cloud API details
 // Set your WhatsApp Business API credentials
 const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1'; // Replace with your actual token
 const PHONE_NUMBER_ID = '625219257346961'; // Replace with your number ID
@@ -46,63 +47,83 @@ app.post("/webhook", async (req, res) => {
       const userText = message.text.body;
       console.log(`🧑 [${from}] User Input: ${userText}`);
 
-      // Start or reuse conversation
+      // Check if this is a new user or an ongoing conversation
       if (!conversations[from]) {
-        const startRes = await fetch("https://directline.botframework.com/v3/directline/conversations", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${DIRECT_LINE_SECRET}`,
-            "Content-Type": "application/json"
-          }
-        });
-        const convoData = await startRes.json();
-        conversations[from] = {
-          conversationId: convoData.conversationId,
-          watermark: null
-        };
-        console.log(`🤖 Created new conversation for ${from}`);
+        // Create a new conversation for the user if it doesn't exist
+        try {
+          const startRes = await fetch("https://directline.botframework.com/v3/directline/conversations", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${DIRECT_LINE_SECRET}`,
+              "Content-Type": "application/json"
+            }
+          });
+          const convoData = await startRes.json();
+          conversations[from] = {
+            conversationId: convoData.conversationId,
+            watermark: null
+          };
+          console.log(`🤖 Created new conversation for ${from}`);
+        } catch (error) {
+          console.error("Error creating conversation:", error);
+          res.sendStatus(500);
+          return;
+        }
       }
 
       const conversationId = conversations[from].conversationId;
 
       // Send user message to Copilot (Direct Line Bot)
       console.log(`🤖 Sending message to Copilot: ${userText}`);
-      await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${DIRECT_LINE_SECRET}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          type: "message",
-          from: { id: "user" },
-          text: userText
-        })
-      });
+      try {
+        await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${DIRECT_LINE_SECRET}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            type: "message",
+            from: { id: "user" },
+            text: userText
+          })
+        });
+      } catch (error) {
+        console.error("Error sending message to Copilot:", error);
+        res.sendStatus(500);
+        return;
+      }
 
       // Wait and get bot response from Copilot
       setTimeout(async () => {
-        const watermark = conversations[from].watermark || "";
-        const botRes = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${watermark}`, {
-          headers: {
-            "Authorization": `Bearer ${DIRECT_LINE_SECRET}`
+        try {
+          const watermark = conversations[from].watermark || "";
+          const botRes = await fetch(`https://directline.botframework.com/v3/directline/conversations/${conversationId}/activities?watermark=${watermark}`, {
+            headers: {
+              "Authorization": `Bearer ${DIRECT_LINE_SECRET}`
+            }
+          });
+          const data = await botRes.json();
+
+          if (data.watermark) {
+            conversations[from].watermark = data.watermark;  // Update watermark after receiving bot response
           }
-        });
-        const data = await botRes.json();
 
-        if (data.watermark) {
-          conversations[from].watermark = data.watermark;  // Update watermark after receiving bot response
-        }
+          const botMessages = data.activities.filter(a => a.from.id !== "user" && a.text);
+          console.log(`🤖 Bot Response from Copilot: ${botMessages.map(msg => msg.text).join(', ')}`);
 
-        const botMessages = data.activities.filter(a => a.from.id !== "user" && a.text);
-        console.log(`🤖 Bot Response from Copilot: ${botMessages.map(msg => msg.text).join(', ')}`);
-
-        // Send bot's response to WhatsApp
-        for (const msg of botMessages) {
-          console.log(`➡️ Sending to WhatsApp: ${msg.text}`);
-          await sendWhatsAppMessage(from, msg.text);
+          // Send bot's response to WhatsApp
+          for (const msg of botMessages) {
+            console.log(`➡️ Sending to WhatsApp: ${msg.text}`);
+            await sendWhatsAppMessage(from, msg.text);
+          }
+        } catch (error) {
+          console.error("Error receiving message from Copilot:", error);
+          res.sendStatus(500);
         }
       }, 2000); // extended delay to ensure the message is processed correctly
+    } else {
+      console.log("Received non-text message");
     }
 
     res.sendStatus(200);
@@ -114,18 +135,22 @@ app.post("/webhook", async (req, res) => {
 // Send message to WhatsApp via Meta Cloud API
 async function sendWhatsAppMessage(to, message) {
   console.log(`➡️ Sending to WhatsApp ${to}: ${message}`);
-  await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${ACCESS_TOKEN}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to: to,
-      text: { body: message }
-    })
-  });
+  try {
+    await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${ACCESS_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: to,
+        text: { body: message }
+      })
+    });
+  } catch (error) {
+    console.error("Error sending message to WhatsApp:", error);
+  }
 }
 
 app.listen(port, () => {
