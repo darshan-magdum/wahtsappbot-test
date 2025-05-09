@@ -246,9 +246,18 @@ async function handleVoiceMessage(mediaId, senderId) {
 
   //  In-memory storage
 const users = {
-  '12345': { name: 'John Doe', mobile: '9876543210', balance: 0, movies: [] },
-  '67890': { name: 'Jane Smith', mobile: '9123456789', balance: 50, movies: [] }
+  '10001': { name: 'John Doe', mobile: '9876543210', balance: 0, movies: [] },
+  '10002': { name: 'Jane Smith', mobile: '9123456789', balance: 50, movies: [] },
+  '10003': { name: 'Amit Sharma', mobile: '9811122233', balance: 100, movies: [] },
+  '10004': { name: 'Priya Verma', mobile: '9822233445', balance: 75, movies: [] },
+  '10005': { name: 'Rahul Mehta', mobile: '9833344556', balance: 30, movies: [] },
+  '10006': { name: 'Sneha Gupta', mobile: '9844455667', balance: 60, movies: [] },
+  '10007': { name: 'Karan Singh', mobile: '9855566778', balance: 25, movies: [] },
+  '10008': { name: 'Divya Patil', mobile: '9866677889', balance: 90, movies: [] },
+  '10009': { name: 'Ravi Iyer', mobile: '9877788990', balance: 10, movies: [] },
+  '10010': { name: 'Meena Desai', mobile: '9888899001', balance: 120, movies: [] }
 };
+
 
 const verifiedUsers = new Set();
 
