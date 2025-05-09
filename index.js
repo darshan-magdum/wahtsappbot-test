@@ -55,7 +55,7 @@ app.post("/webhook", async (req, res) => {
           const messageAudio = message.audio?.id;
           
           if (messageText) {
-             userText= sendMessage(senderId, `Thanks for your message: ${messageText}`);
+             userText= messageText;
           } else if (messageAudio) {
             userText= handleVoiceMessage(messageAudio, senderId);
           }
@@ -170,31 +170,31 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// send message function
-function sendMessage(to, message) {
-  axios
-    .post(
-      `https://graph.facebook.com/v13.0/${PHONE_NUMBER_ID}/messages`,
-      {
-        messaging_product: 'whatsapp',
-        to: to,
-        text: { body: message },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${ACCESS_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
-    .then((response) => {
-      console.log('Message sent:', response.data);
-    return response.data
-    })
-    .catch((error) => {
-      return console.error('Error sending message:', error.response?.data || error.message);
-    });
-}
+// send message function which is not useful
+// function sendMessage(to, message) {
+//   axios
+//     .post(
+//       `https://graph.facebook.com/v13.0/${PHONE_NUMBER_ID}/messages`,
+//       {
+//         messaging_product: 'whatsapp',
+//         to: to,
+//         text: { body: message },
+//       },
+//       {
+//         headers: {
+//           Authorization: `Bearer ${ACCESS_TOKEN}`,
+//           'Content-Type': 'application/json',
+//         },
+//       }
+//     )
+//     .then((response) => {
+//       console.log('Message sent:', response.data);
+//     return response.data
+//     })
+//     .catch((error) => {
+//       return console.error('Error sending message:', error.response?.data || error.message);
+//     });
+// }
 
 //handleVoiceMessage function
 async function handleVoiceMessage(mediaId, senderId) {
@@ -233,12 +233,12 @@ async function handleVoiceMessage(mediaId, senderId) {
   
       const text = azureRes.data.DisplayText;
       console.log("Transcribed:", text);
-  
+      return text
       // Step 4: Reply to sender
-      sendMessage(senderId, `${text}`);
+      // sendMessage(senderId, `${text}`);
     } catch (err) {
       console.error("Error handling voice:", err.response?.data || err.message);
-      sendMessage(senderId, `Sorry, I couldn't understand your voice message.`);
+      // sendMessage(senderId, `Sorry, I couldn't understand your voice message.`);
     }
   }
   
