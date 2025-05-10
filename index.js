@@ -400,7 +400,7 @@ app.post('/add-movie', async (req, res) => {
   const { smartcardNumber, movieName } = req.body;
    const user = await User.findOne({ smartcardNumber });
 
-  if (user) {
+  if (!user) {
     return res.json({
       message: 'User is not verified.',
       validation: false
@@ -432,7 +432,7 @@ app.post('/add-balance', async (req, res) => {
   const { smartcardNumber, amount } = req.body;
 const user = await User.findOne({ smartcardNumber });
 
-  if (user) {
+  if (!user) {
     return res.json({
       message: 'User not verified.',
       validation: false
@@ -461,7 +461,7 @@ const user = await User.findOne({ smartcardNumber });
 app.get('/get-balance', async (req, res) => {
   const { smartcardNumber } = req.query;
 const user = await User.findOne({ smartcardNumber });
-  if (user) {
+  if (!user) {
     return res.json({
       message: 'User not verified.',
       validation: false
