@@ -13,12 +13,12 @@ app.use(bodyParser.json());
 
 // WhatsApp API credentials
 const ACCESS_TOKEN = 'EAAWxjuZCQrhMBO1NUdXqZCQ13IZCqyZB6aP9uishp7pmqmy5Upv8KTeWlukpJWk6pqPWKAIjwXpU5M2WbZCm76XlWUH4uCyxXSUmeAzUIwuOPvbtumvf30rKlXqH8g62IJkdqm8sgo0bG1TA4yAHLKlMARv0BSZC1tceSAV9098jj0n9g3XF9nAlX1'; // Replace with your actual token
-const PHONE_NUMBER_ID = '625219257346961'; // Replace with your number ID
+const PHONE_NUMBER_ID = '625219257346961'; 
 const VERIFY_TOKEN = 'WhatsAppBot123'; 
 
 // Direct Line API
 const BASE_URL = "https://directline.botframework.com/v3/directline";
-const DIRECT_LINE_SECRET = "qEyAQSHjjFw.o4MGhA9CqzvEC9mUk5Slhupl-8Hx2ntf7ZTlXPhvLmU"; // Replace with your Direct Line Secret
+const DIRECT_LINE_SECRET = "4bEHl4WbbsPZnu4Tq3APzAfGbKMVBM2uUEDw2dXyzZ4MDTZSPc03JQQJ99BEAC77bzfAArohAAABAZBS0118.CebHBnxyeBs63IDEs2dowO7Acu8IALe5lc19M3zLy8s26aLWNuhpJQQJ99BEAC77bzfAArohAAABAZBS3Qhc"; 
 
 
 // Store conversations
