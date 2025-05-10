@@ -398,15 +398,16 @@ app.post('/verify-mobile', async (req, res) => {
 // Usecase 1: Add Movie
 app.post('/add-movie', async (req, res) => {
   const { smartcardNumber, movieName } = req.body;
+   const user = await User.findOne({ smartcardNumber });
 
-  if (!verifiedUsers.has(smartcardNumber)) {
+  if (user) {
     return res.json({
       message: 'User is not verified.',
       validation: false
     });
   }
 
-  const user = await User.findOne({ smartcardNumber });
+ 
 
   if (user) {
     user.movies.push(movieName);
@@ -429,15 +430,15 @@ app.post('/add-movie', async (req, res) => {
 // Usecase 2: Add Top-Up Balance
 app.post('/add-balance', async (req, res) => {
   const { smartcardNumber, amount } = req.body;
+const user = await User.findOne({ smartcardNumber });
 
-  if (!verifiedUsers.has(smartcardNumber)) {
+  if (user) {
     return res.json({
       message: 'User not verified.',
       validation: false
     });
   }
 
-  const user = await User.findOne({ smartcardNumber });
   if (user) {
     user.balance += amount;
     await user.save();
@@ -459,15 +460,15 @@ app.post('/add-balance', async (req, res) => {
 // Usecase 3: Get Balance and Movies
 app.get('/get-balance', async (req, res) => {
   const { smartcardNumber } = req.query;
-
-  if (!verifiedUsers.has(smartcardNumber)) {
+const user = await User.findOne({ smartcardNumber });
+  if (user) {
     return res.json({
       message: 'User not verified.',
       validation: false
     });
   }
 
-  const user = await User.findOne({ smartcardNumber });
+
   if (user) {
     res.json({
       balance: user.balance,
