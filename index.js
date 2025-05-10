@@ -246,26 +246,119 @@ async function handleVoiceMessage(mediaId, senderId) {
   
 
   //  In-memory storage
-const users = {
-  '10001': { name: 'John Doe', mobile: '9876543210', balance: 0, movies: [] },
-  '10002': { name: 'Jane Smith', mobile: '9123456789', balance: 50, movies: [] },
-  '10003': { name: 'Amit Sharma', mobile: '9811122233', balance: 100, movies: [] },
-  '10004': { name: 'Priya Verma', mobile: '9822233445', balance: 75, movies: [] },
-  '10005': { name: 'Rahul Mehta', mobile: '9833344556', balance: 30, movies: [] },
-  '10006': { name: 'Sneha Gupta', mobile: '9844455667', balance: 60, movies: [] },
-  '10007': { name: 'Karan Singh', mobile: '9855566778', balance: 25, movies: [] },
-  '10008': { name: 'Divya Patil', mobile: '9866677889', balance: 90, movies: [] },
-  '10009': { name: 'Ravi Iyer', mobile: '9877788990', balance: 10, movies: [] },
-  '10010': { name: 'Meena Desai', mobile: '9888899001', balance: 120, movies: [] }
-};
+// const users = {
+//   '10001': { name: 'John Doe', mobile: '9876543210', balance: 0, movies: [] },
+//   '10002': { name: 'Jane Smith', mobile: '9123456789', balance: 50, movies: [] },
+//   '10003': { name: 'Amit Sharma', mobile: '9811122233', balance: 100, movies: [] },
+//   '10004': { name: 'Priya Verma', mobile: '9822233445', balance: 75, movies: [] },
+//   '10005': { name: 'Rahul Mehta', mobile: '9833344556', balance: 30, movies: [] },
+//   '10006': { name: 'Sneha Gupta', mobile: '9844455667', balance: 60, movies: [] },
+//   '10007': { name: 'Karan Singh', mobile: '9855566778', balance: 25, movies: [] },
+//   '10008': { name: 'Divya Patil', mobile: '9866677889', balance: 90, movies: [] },
+//   '10009': { name: 'Ravi Iyer', mobile: '9877788990', balance: 10, movies: [] },
+//   '10010': { name: 'Meena Desai', mobile: '9888899001', balance: 120, movies: [] }
+// };
 
 
+// const verifiedUsers = new Set();
+
+// // Step 1: Verify Smartcard Number
+// app.post('/verify-smartcard', (req, res) => {
+//   const { smartcardNumber } = req.body;
+//   if (users[smartcardNumber]) {
+//     res.json({ message: 'Smartcard verified. Please enter mobile number.' });
+//   } else {
+//     res.status(400).json({ error: 'Invalid smartcard number.' });
+//   }
+// });
+
+// // Step 2: Verify Mobile Number
+// app.post('/verify-mobile', (req, res) => {
+//   const { smartcardNumber, mobileNumber } = req.body;
+//   const user = users[smartcardNumber];
+
+//   if (user && user.mobile === mobileNumber) {
+//     verifiedUsers.add(smartcardNumber);
+//     res.json({
+//       message: 'Verification successful.',
+//       name: user.name,
+//       smartcardNumber,
+//       mobileNumber
+//     });
+//   } else {
+//     res.status(400).json({ error: 'Mobile number does not match.' });
+//   }
+// });
+
+// // Usecase 1: Add Movie
+// app.post('/add-movie', (req, res) => {
+//   const { smartcardNumber, movieName } = req.body;
+
+//   if (!verifiedUsers.has(smartcardNumber)) {
+//     return res.status(401).json({ error: 'User not verified.' });
+//   }
+
+//   users[smartcardNumber].movies.push(movieName);
+//   res.json({ message: `Movie '${movieName}' added.` });
+// });
+
+// // Usecase 2: Add Top-Up Balance
+// app.post('/add-balance', (req, res) => {
+//   const { smartcardNumber, amount } = req.body;
+
+//   if (!verifiedUsers.has(smartcardNumber)) {
+//     return res.status(401).json({ error: 'User not verified.' });
+//   }
+
+//   users[smartcardNumber].balance += amount;
+//   res.json({ message: `₹${amount} added.`, totalBalance: users[smartcardNumber].balance });
+// });
+
+// // Usecase 3: Get Balance
+// app.get('/get-balance', (req, res) => {
+//   const { smartcardNumber } = req.query;
+
+//   if (!verifiedUsers.has(smartcardNumber)) {
+//     return res.status(401).json({ error: 'User not verified.' });
+//   }
+
+//   res.json({
+//     balance: users[smartcardNumber].balance,
+//     movies: users[smartcardNumber].movies
+//   });
+// });
+
+
+
+// MongoDB Connection
+mongoose.connect(
+  'mongodb+srv://darshanmagdum:tzj7SxsKHeZoqc14@whatsappbot-cluster.2wgzguz.mongodb.net/SmartcardApp?retryWrites=true&w=majority&appName=WhatsappBOT-CLUSTER',
+  {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }
+).then(() => console.log('✅ MongoDB connected'))
+ .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// User Schema and Model
+const userSchema = new mongoose.Schema({
+  smartcardNumber: { type: String, unique: true },
+  name: String,
+  mobile: String,
+  balance: Number,
+  movies: [String],
+});
+const User = mongoose.model('User', userSchema);
+
+// In-memory set to track verified users
 const verifiedUsers = new Set();
 
 // Step 1: Verify Smartcard Number
-app.post('/verify-smartcard', (req, res) => {
+app.post('/verify-smartcard', async (req, res) => {
   const { smartcardNumber } = req.body;
-  if (users[smartcardNumber]) {
+  const user = await User.findOne({ smartcardNumber });
+
+  if (user) {
     res.json({ message: 'Smartcard verified. Please enter mobile number.' });
   } else {
     res.status(400).json({ error: 'Invalid smartcard number.' });
@@ -273,9 +366,9 @@ app.post('/verify-smartcard', (req, res) => {
 });
 
 // Step 2: Verify Mobile Number
-app.post('/verify-mobile', (req, res) => {
+app.post('/verify-mobile', async (req, res) => {
   const { smartcardNumber, mobileNumber } = req.body;
-  const user = users[smartcardNumber];
+  const user = await User.findOne({ smartcardNumber });
 
   if (user && user.mobile === mobileNumber) {
     verifiedUsers.add(smartcardNumber);
@@ -291,42 +384,57 @@ app.post('/verify-mobile', (req, res) => {
 });
 
 // Usecase 1: Add Movie
-app.post('/add-movie', (req, res) => {
+app.post('/add-movie', async (req, res) => {
   const { smartcardNumber, movieName } = req.body;
 
   if (!verifiedUsers.has(smartcardNumber)) {
     return res.status(401).json({ error: 'User not verified.' });
   }
 
-  users[smartcardNumber].movies.push(movieName);
-  res.json({ message: `Movie '${movieName}' added.` });
+  const user = await User.findOne({ smartcardNumber });
+  if (user) {
+    user.movies.push(movieName);
+    await user.save();
+    res.json({ message: `Movie '${movieName}' added.` });
+  } else {
+    res.status(404).json({ error: 'User not found.' });
+  }
 });
 
 // Usecase 2: Add Top-Up Balance
-app.post('/add-balance', (req, res) => {
+app.post('/add-balance', async (req, res) => {
   const { smartcardNumber, amount } = req.body;
 
   if (!verifiedUsers.has(smartcardNumber)) {
     return res.status(401).json({ error: 'User not verified.' });
   }
 
-  users[smartcardNumber].balance += amount;
-  res.json({ message: `₹${amount} added.`, totalBalance: users[smartcardNumber].balance });
+  const user = await User.findOne({ smartcardNumber });
+  if (user) {
+    user.balance += amount;
+    await user.save();
+    res.json({ message: `₹${amount} added.`, totalBalance: user.balance });
+  } else {
+    res.status(404).json({ error: 'User not found.' });
+  }
 });
 
-// Usecase 3: Get Balance
-app.get('/get-balance', (req, res) => {
+// Usecase 3: Get Balance and Movies
+app.get('/get-balance', async (req, res) => {
   const { smartcardNumber } = req.query;
 
   if (!verifiedUsers.has(smartcardNumber)) {
     return res.status(401).json({ error: 'User not verified.' });
   }
 
-  res.json({
-    balance: users[smartcardNumber].balance,
-    movies: users[smartcardNumber].movies
-  });
+  const user = await User.findOne({ smartcardNumber });
+  if (user) {
+    res.json({ balance: user.balance, movies: user.movies });
+  } else {
+    res.status(404).json({ error: 'User not found.' });
+  }
 });
+
 
 
 
