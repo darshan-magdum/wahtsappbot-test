@@ -358,11 +358,18 @@ app.post('/verify-smartcard', async (req, res) => {
   const { smartcardNumber } = req.body;
   const user = await User.findOne({ smartcardNumber });
 
-  if (user) {
-    res.json({ message: 'Smartcard verified. Please enter mobile number.' });
-  } else {
-    res.status(400).json({ error: 'Invalid smartcard number.' });
-  }
+ if (user) {
+  res.json({ 
+    message: 'Smartcard verified. Please enter your mobile number.', 
+    validation: true 
+  });
+} else {
+  res.json({ 
+    message: 'Smartcard is invalid.', 
+    validation: false 
+  });
+}
+
 });
 
 // Step 2: Verify Mobile Number
@@ -371,16 +378,22 @@ app.post('/verify-mobile', async (req, res) => {
   const user = await User.findOne({ smartcardNumber });
 
   if (user && user.mobile === mobileNumber) {
-    verifiedUsers.add(smartcardNumber);
-    res.json({
-      message: 'Verification successful.',
-      name: user.name,
-      smartcardNumber,
-      mobileNumber
-    });
-  } else {
-    res.status(400).json({ error: 'Mobile number does not match.' });
-  }
+  verifiedUsers.add(smartcardNumber);
+
+  res.json({
+    message: 'Verification successful.',
+    name: user.name,
+    smartcardNumber: smartcardNumber,
+    mobileNumber: mobileNumber,
+    validation: true
+  });
+} else {
+  res.json({
+    message: 'The provided mobile number does not match our records.',
+    validation: false
+  });
+}
+
 });
 
 // Usecase 1: Add Movie
@@ -388,52 +401,88 @@ app.post('/add-movie', async (req, res) => {
   const { smartcardNumber, movieName } = req.body;
 
   if (!verifiedUsers.has(smartcardNumber)) {
-    return res.status(401).json({ error: 'User not verified.' });
+    return res.json({
+      message: 'User is not verified.',
+      validation: false
+    });
   }
 
   const user = await User.findOne({ smartcardNumber });
+
   if (user) {
     user.movies.push(movieName);
     await user.save();
-    res.json({ message: `Movie '${movieName}' added.` });
+
+    res.json({
+      message: `Movie '${movieName}' added successfully.`,
+      movieName,
+      validation: true
+    });
   } else {
-    res.status(404).json({ error: 'User not found.' });
+    res.json({
+      message: 'User not found in the system.',
+      validation: false
+    });
   }
 });
+
 
 // Usecase 2: Add Top-Up Balance
 app.post('/add-balance', async (req, res) => {
   const { smartcardNumber, amount } = req.body;
 
   if (!verifiedUsers.has(smartcardNumber)) {
-    return res.status(401).json({ error: 'User not verified.' });
+    return res.json({
+      message: 'User not verified.',
+      validation: false
+    });
   }
 
   const user = await User.findOne({ smartcardNumber });
   if (user) {
     user.balance += amount;
     await user.save();
-    res.json({ message: `₹${amount} added.`, totalBalance: user.balance });
+
+    res.json({
+      message: `₹${amount} added successfully.`,
+      totalBalance: user.balance,
+      validation: true
+    });
   } else {
-    res.status(404).json({ error: 'User not found.' });
+    res.json({
+      message: 'User not found.',
+      validation: false
+    });
   }
 });
+
 
 // Usecase 3: Get Balance and Movies
 app.get('/get-balance', async (req, res) => {
   const { smartcardNumber } = req.query;
 
   if (!verifiedUsers.has(smartcardNumber)) {
-    return res.status(401).json({ error: 'User not verified.' });
+    return res.json({
+      message: 'User not verified.',
+      validation: false
+    });
   }
 
   const user = await User.findOne({ smartcardNumber });
   if (user) {
-    res.json({ balance: user.balance, movies: user.movies });
+    res.json({
+      balance: user.balance,
+      movies: user.movies,
+      validation: true
+    });
   } else {
-    res.status(404).json({ error: 'User not found.' });
+    res.json({
+      message: 'User not found.',
+      validation: false
+    });
   }
 });
+
 
 
 
