@@ -329,7 +329,6 @@ async function handleVoiceMessage(mediaId, senderId) {
 // });
 
 
-
 // MongoDB Connection
 mongoose.connect(
   'mongodb+srv://darshanmagdum:tzj7SxsKHeZoqc14@whatsappbot-cluster.2wgzguz.mongodb.net/SmartcardApp?retryWrites=true&w=majority&appName=WhatsappBOT-CLUSTER',
@@ -486,8 +485,7 @@ app.get('/get-balance', async (req, res) => {
 
 
 
-
 // ✅ Start Server
-app.listen(port, () => {
-  console.log(`✅ Server is running on port ${port}`);
-});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT , () => console.log(`server running on port ${PORT}`));
