@@ -1,0 +1,109 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRedirect
+  id: main
+  actions:
+    - kind: HttpRequestAction
+      id: WyTFrx
+      method: Post
+      url: =Global.OpenAIEndpoint
+      headers:
+        api-key: =Global.OpenAIKey
+        content-type: application/json
+
+      body:
+        kind: JsonRequestContent
+        content: |-
+          ={
+            functions: [
+              {
+                description: "Identify the user's intent based on the provided text and set the corresponding entity to true. Ensure only one entity is true at a time, and all others are false.",
+                name: "set_user_intent",
+                parameters: {
+                  properties: {
+                    CancelRequest: {
+                      description: "Set to true if the user wants to cancel task creation or exit flow and dont want to proceed further based on the provided text.",
+                      type: "boolean"
+                    },
+                    ProceedFurther: {
+                      description: "Set to true if the user wants to proceed with further steps based on the provided text. Or user confirms that he wanted to proceed based on the Text then also set to true. Set to true if the user confirms they want to proceed, such as responding with phrases like 'we are all set' or similar confirmations based on the provided text.",
+                      type: "boolean"
+                    }
+                  },
+                  required: ["ProceedFurther","CancelRequest"
+                  ],
+                  type: "object"
+                }
+              }
+            ],
+            messages: [
+              {
+                content: "You are an assistant trained to identify user intent based on their response and set one of the three entities (`ProceedFurther`, `CancelRequest`) to true. Ensure that only one entity is true at a time and others are false.",
+                role: "system"
+              },
+              {
+                content: "Based on the text provided by the user, determine if they want to proceed further, cancel the request. Set the corresponding entity to true and all others to false:
+          
+          - ProceedFurther: True if the user expresses a desire to proceed.
+          - CancelRequest: True if the user wants to cancel,exit or stop further actions.
+          *Language*:User can pass the message in other language also,so you need to understand the meaning of user input as per user chosen language.
+          Language: "&System.User.Language&",
+          Text: "&Topic.TextForConfirmation&",
+          User Response: "&System.Activity.Text&"",
+                role: "user"
+              }
+            ],
+            model: "gpt-4",
+            temperature: 0
+          }
+
+      errorHandling:
+        kind: ContinueOnErrorBehavior
+        statusCode: Topic.ErrorCode
+        errorResponseBody: Topic.ErrorResponse
+
+      requestTimeoutInMilliseconds: 15000
+      response: Topic.Response
+      responseSchema: Any
+      responseHeaders: Topic.Response
+
+    - kind: ConditionGroup
+      id: DdakWv
+      conditions:
+        - id: 8khzc3
+          condition: =IsBlank(Topic.ErrorCode)
+          actions:
+            - kind: ParseValue
+              id: JVS7eP
+              variable: Topic.CustomerChoice
+              valueType:
+                kind: Record
+                properties:
+                  CancelRequest: Boolean
+                  ProceedFurther: Boolean
+
+              value: =Text(First(Topic.Response.choices).message.function_call.arguments)
+
+      elseActions:
+        - kind: SendActivity
+          id: zph7w1
+          activity: Apologies, I’m having trouble processing your request at the moment. Could you please try again later? I’ll be happy to assist you.
+
+        - kind: CancelAllDialogs
+          id: TFotcY
+
+inputType:
+  properties:
+    TextForConfirmation:
+      displayName: TextForConfirmation
+      type: String
+
+outputType:
+  properties:
+    CustomerChoice:
+      displayName: CustomerChoice
+      type:
+        kind: Record
+        properties:
+          CancelRequest: Boolean
+          ProceedFurther: Boolean

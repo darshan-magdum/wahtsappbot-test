@@ -1,0 +1,163 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRedirect
+  id: main
+  actions:
+    - kind: BeginDialog
+      id: TC65xi
+      dialog: cr053_whatsappbot.topic.EndPointandKey
+
+    - kind: Question
+      id: question_jpBDui
+      interruptionPolicy:
+        allowInterruption: true
+        interruptionTopicListFilter:
+          kind: IncludeSelectedTopics
+          allowedInterruptTopics:
+            - cr053_whatsappbot.topic.Escalate
+            - cr053_whatsappbot.topic.Goodbye
+            - cr053_whatsappbot.topic.Greeting
+            - cr053_whatsappbot.topic.StartOver
+            - cr053_whatsappbot.topic.ThankYou
+            - cr053_whatsappbot.topic.VerifySmartCardAndMobile
+
+      repeatCount: 2
+      alwaysPrompt: false
+      variable: Topic.SmartCardNumber
+      prompt:
+        text:
+          - |-
+            {If((Topic.VarifyResponse.validation = false), "Oops! That doesn't seem like a valid SmartCard number. Please try again with the correct one.", "Hi! To get started, please enter your SmartCard number.")
+            }
+          - |-
+            {If(
+              (Topic.VarifyResponse.validation = false) ,
+              "The SmartCard number entered appears to be incorrect. Please try again.",
+              "Please enter your SmartCard number to continue."
+            )
+            }
+
+      entity:
+        kind: NumberPrebuiltEntity
+        sensitivityLevel: None
+
+    - kind: HttpRequestAction
+      id: VXjSZu
+      method: Post
+      url: =Global.BaseUrl&"/verify-smartcard"
+      body:
+        kind: JsonRequestContent
+        content: |-
+          ={
+          smartcardNumber:Topic.SmartCardNumber
+          }
+
+      errorHandling:
+        kind: ContinueOnErrorBehavior
+        errorResponseBody: Topic.APIError
+
+      response: Topic.VarifyResponse
+      responseSchema:
+        kind: Record
+        properties:
+          message: String
+          validation: Boolean
+
+    - kind: ConditionGroup
+      id: conditionGroup_YuOBIm
+      conditions:
+        - id: conditionItem_ZNJY1I
+          condition: =IsBlank(Topic.APIError)
+          actions:
+            - kind: ConditionGroup
+              id: conditionGroup_ABeccJ
+              conditions:
+                - id: conditionItem_jZTJ2M
+                  condition: =If(Topic.VarifyResponse.validation = true,true,false)
+
+              elseActions:
+                - kind: GotoAction
+                  id: 4M5wYY
+                  actionId: question_jpBDui
+
+            - kind: SetVariable
+              id: setVariable_IsAD9n
+              variable: Global.SmartCard_Number
+              value: =Topic.SmartCardNumber
+
+            - kind: Question
+              id: question_0uBdIH
+              interruptionPolicy:
+                allowInterruption: true
+
+              variable: init:Topic.MobileNumber
+              prompt: |-
+                {If(
+                  (Topic.MobileNoAPI_Response.validation = false ),
+                  "Sorry, the Mobile number you provided is not valid. Please enter a correct one.",
+                  "✅ SmartCard verified successfully!
+                You can now continue with the next step. Please enter your registered mobile number to complete the verification process."
+                )
+                }
+              entity: PhoneNumberPrebuiltEntity
+
+            - kind: HttpRequestAction
+              id: dVU5dE
+              method: Post
+              url: =Global.BaseUrl&"/verify-mobile"
+              body:
+                kind: JsonRequestContent
+                content: |-
+                  ={
+                    mobileNumber: Topic.MobileNumber,
+                    smartcardNumber: Topic.SmartCardNumber
+                  }
+
+              errorHandling:
+                kind: ContinueOnErrorBehavior
+                errorResponseBody: Topic.MobileNumberAPI_Error
+
+              response: Topic.MobileNoAPI_Response
+              responseSchema:
+                kind: Record
+                properties:
+                  message: String
+                  mobileNumber: String
+                  name: String
+                  smartcardNumber: String
+                  validation: Boolean
+
+            - kind: ConditionGroup
+              id: conditionGroup_9bS0LM
+              conditions:
+                - id: conditionItem_PMOJZr
+                  condition: =IsBlank(Topic.MobileNumberAPI_Error)
+                  actions:
+                    - kind: ConditionGroup
+                      id: conditionGroup_iJXHJa
+                      conditions:
+                        - id: conditionItem_8iBy7d
+                          condition: =If(Topic.MobileNoAPI_Response.validation = true,true,false)
+                          actions:
+                            - kind: SetVariable
+                              id: setVariable_AQDGFE
+                              variable: Global.Name
+                              value: =Topic.MobileNoAPI_Response.name
+
+                      elseActions:
+                        - kind: GotoAction
+                          id: G6lgwp
+                          actionId: question_0uBdIH
+
+              elseActions:
+                - kind: GotoAction
+                  id: weLd5u
+                  actionId: question_0uBdIH
+
+      elseActions:
+        - kind: GotoAction
+          id: Knjqsx
+          actionId: question_jpBDui
+
+inputType: {}
+outputType: {}

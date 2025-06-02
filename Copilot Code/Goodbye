@@ -1,0 +1,158 @@
+kind: AdaptiveDialog
+startBehavior: CancelOtherTopics
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Goodbye
+    includeInOnSelectIntent: false
+    triggerQueries:
+      - end this conversation
+      - end conversation
+      - ConversationEnd
+      - Endconversation
+
+  actions:
+    - kind: SetVariable
+      id: 99Tpw2
+      variable: Topic.User_input
+      value: =System.Activity.Text
+
+    - kind: HttpRequestAction
+      id: EFM0ns
+      method: Post
+      url: =Global.OpenAIEndpoint
+      headers:
+        api-key: =Global.OpenAIKey
+        content-type: application/json
+
+      body:
+        kind: JsonRequestContent
+        content: |-
+          ={
+            functions: [
+              {
+                description: "Classify the text to determine if the user wants to end the conversation or exit. Mark it as true if the text contains phrases like 'exit', 'end conversation', 'goodbye', 'see you later', conversationend ,EndConversation or similar. Otherwise, mark it as false.",
+                name: "classify_topic",
+                parameters: {
+                  properties: {
+                    exit: {
+                      description: "True if the user wants to end the conversation or exit, e.g., 'exit', 'end conversation', 'goodbye', 'see you later', or similar expressions. If no such request is present, mark it as false.",
+                      type: "boolean"
+                    }
+                  },
+                  required: ["exit"],
+                  type: "object"
+                }
+              }
+            ],
+            messages: [
+              {
+                content: "You are an assistant trained to classify text based on whether the user wants to end the conversation or exit. Mark 'exit' as true if the text contains phrases like 'exit', 'end conversation', 'goodbye', 'see you later', or similar. If no such request is found, mark it as false.",
+                role: "system"
+              },
+              {
+                content: "Please analyze the following text and classify it based on the description:\n\n- **exit**: Classify the text as a request to end the conversation or exit if it contains phrases like 'exit', 'goodbye', 'see you later', or similar. If no such request is found, mark it as false
+          Text: '"&Topic.User_input&"'",
+                role: "user"
+              }
+            ],
+            model: "gpt-4",
+            temperature: 0
+          }
+
+      errorHandling:
+        kind: ContinueOnErrorBehavior
+        statusCode: Topic.ErrorCode
+        errorResponseBody: Topic.ErrorResponse
+
+      response: Topic.Var1
+      responseSchema: Any
+      responseHeaders: Topic.Response
+
+    - kind: ParseValue
+      id: YrkEHZ
+      variable: Topic.CustomerFields
+      valueType:
+        kind: Record
+        properties:
+          exit: Boolean
+
+      value: =Text(First(Topic.Var1.choices).message.function_call.arguments)
+
+    - kind: ConditionGroup
+      id: f5r3vU
+      conditions:
+        - id: KF797z
+          condition: =If(Topic.CustomerFields.exit=true,true,false)
+          actions:
+            - kind: Question
+              id: WRBDhd
+              interruptionPolicy:
+                allowInterruption: true
+                interruptionTopicListFilter:
+                  kind: IncludeSelectedTopics
+                  allowedInterruptTopics:
+                    - cr053_whatsappbot.topic.Greeting
+                    - cr047_salesBot.topic.Stoptheprogram
+                    - cr053_whatsappbot.topic.StartOver
+
+              repeatCount: 0
+              alwaysPrompt: true
+              variable: Topic.EndConversation
+              prompt: Would you like to end the conversation now? Please respond with 'Yes' if you would like to end, or 'No' if you would like to continue.
+              defaultValue: =Blank()
+              entity: StringPrebuiltEntity
+
+            - kind: BeginDialog
+              id: A3knvL
+              input:
+                binding:
+                  TextForConfirmation: |
+                    ="Are you Sure?" &
+                    "
+                    As this above question is related to End Conversation. If user response is related to **yes or wants to end conversation** in any way/format then **ProceedFurther becomes true and CancelRequest becomes false**."
+
+              dialog: cr053_whatsappbot.topic.UsersYesNoConfirmation
+              output:
+                binding:
+                  CustomerChoice: Topic.CustomerChoice
+
+            - kind: ConditionGroup
+              id: PxS4lp
+              conditions:
+                - id: cBloR4
+                  condition: =If(Topic.CustomerChoice.ProceedFurther =true,true,false)
+                  actions:
+                    - kind: SendActivity
+                      id: 1fANrE
+                      activity:
+                        text:
+                          - Sure, I'll be around.
+                        quickReplies:
+                          - kind: SendHiddenMessageBack
+                            text: ConversationEnd
+
+                    - kind: ClearAllVariables
+                      id: VRwb20
+                      variables: AllGlobalVariables
+
+                    - kind: CancelAllDialogs
+                      id: xbHxxf
+
+                - id: REn8aw
+                  condition: =If(Topic.CustomerChoice.CancelRequest =true,true,false)
+                  actions:
+                    - kind: SendActivity
+                      id: RJmvSQ
+                      activity: Go ahead. I'm listening.
+
+              elseActions:
+                - kind: GotoAction
+                  id: Nxx5oD
+                  actionId: WRBDhd
+
+      elseActions:
+        - kind: BeginDialog
+          id: loHcwa
+          dialog: cr053_whatsappbot.topic.Search

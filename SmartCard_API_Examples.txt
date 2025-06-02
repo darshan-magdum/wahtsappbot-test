@@ -1,0 +1,112 @@
+
+✅ 1. Verify Smartcard
+Endpoint: POST /verify-smartcard
+
+Request Payload:
+{
+  "smartcardNumber": "10001"
+}
+
+Success Response:
+{
+  "message": "Smartcard verified. Please enter your mobile number.",
+  "validation": true
+}
+
+Failure Response:
+{
+  "message": "Smartcard is invalid.",
+  "validation": false
+}
+
+------------------------------------
+
+✅ 2. Verify Mobile
+Endpoint: POST /verify-mobile
+
+Request Payload:
+{
+  "smartcardNumber": "10001",
+  "mobileNumber": "9876543210"
+}
+
+Success Response:
+{
+  "message": "Verification successful.",
+  "name": "John Doe",
+  "smartcardNumber": "10001",
+  "mobileNumber": "9876543210",
+  "validation": true
+}
+
+Failure Response:
+{
+  "message": "The provided mobile number does not match our records.",
+  "validation": false
+}
+
+------------------------------------
+
+✅ 3. Add Movie
+Endpoint: POST /add-movie
+
+Request Payload:
+{
+  "smartcardNumber": "10001",
+  "movieName": "Inception"
+}
+
+Success Response:
+{
+  "message": "Movie 'Inception' added successfully.",
+  "movieName": "Inception",
+  "validation": true
+}
+
+Failure Response:
+{
+  "message": "User is not verified.",
+  "validation": false
+}
+
+------------------------------------
+
+✅ 4. Add Balance
+Endpoint: POST /add-balance
+
+Request Payload:
+{
+  "smartcardNumber": "10001",
+  "amount": 100
+}
+
+Success Response:
+{
+  "message": "₹100 added successfully.",
+  "totalBalance": 100,
+  "validation": true
+}
+
+Failure Response:
+{
+  "message": "User not verified.",
+  "validation": false
+}
+
+------------------------------------
+
+✅ 5. Get Balance and Movies
+Endpoint: GET /get-balance?smartcardNumber=10001
+
+Success Response:
+{
+  "balance": 100,
+  "movies": ["Inception"],
+  "validation": true
+}
+
+Failure Response:
+{
+  "message": "User not verified.",
+  "validation": false
+}

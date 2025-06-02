@@ -1,0 +1,164 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRedirect
+  id: main
+  actions:
+    - kind: ConditionGroup
+      id: conditionGroup_8vTsXC
+      conditions:
+        - id: conditionItem_eA15u1
+          condition: =IsBlank(Global.SmartCard_Number)
+          actions:
+            - kind: BeginDialog
+              id: gZeyI7
+              dialog: cr053_whatsappbot.topic.VerifySmartCardAndMobile
+
+    - kind: Question
+      id: question_72FLKa
+      interruptionPolicy:
+        allowInterruption: true
+        interruptionTopicListFilter:
+          kind: IncludeSelectedTopics
+          allowedInterruptTopics:
+            - cr053_whatsappbot.topic.Goodbye
+            - cr053_whatsappbot.topic.StartOver
+            - cr053_whatsappbot.topic.Greeting
+
+      repeatCount: 2
+      variable: Topic.Movies
+      prompt: |-
+        {"😊 Hello " & Global.Name & ", please enter the Movie name you wish to add to your Collection."
+        }
+      entity:
+        kind: StringPrebuiltEntity
+        sensitivityLevel: None
+
+    - kind: HttpRequestAction
+      id: Ku0Rzi
+      method: Post
+      url: https://tesa-gpt-4o.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2023-03-15-preview
+      headers:
+        api-key: a05fa11d4d0748f0bd475bbc20a5ec76
+        content-type: application/json
+
+      body:
+        kind: JsonRequestContent
+        content: |-
+          ={
+            functions: [
+              {
+                description: "Extract the movie name(s) from the user's input text.",
+                name: "extract_movie_name",
+                parameters: {
+                  properties: {
+                    movienames: {
+                      description: "A list of movie names mentioned by the user in the text.",
+                      type: "string"
+                    }
+                  },
+                  required: ["movienames"
+                  ],
+                  type: "object"
+                }
+              }
+            ],
+            messages: [
+              {
+                content: "You are an assistant trained to extract movie names from the user's input text. Please return the movie names mentioned in the text.",
+                role: "system"
+              },
+              {
+                content: "Please extract movie names from the text provided by the user.",
+                role: "user"
+              },
+              {
+                content: Topic.Movies,
+                role: "user"
+              }
+            ],
+            model: "gpt-4",
+            temperature: 0
+          }
+
+      response: Topic.ExtractedMovie
+      responseSchema: Any
+
+    - kind: ParseValue
+      id: AK2lbi
+      variable: Topic.Movienames
+      valueType:
+        kind: Record
+        properties:
+          movienames: String
+
+      value: =Text(First(Topic.ExtractedMovie.choices).message.function_call.arguments)
+
+    - kind: SetVariable
+      id: setVariable_NeHqdn
+      variable: Topic.Var1
+      value: =Topic.Movienames.movienames
+
+    - kind: HttpRequestAction
+      id: 3LEIBJ
+      method: Post
+      url: =Global.BaseUrl&"/add-movie"
+      body:
+        kind: JsonRequestContent
+        content: |-
+          ={
+          smartcardNumber: Global.SmartCard_Number,
+          movieName: Topic.Var1
+          }
+
+      errorHandling:
+        kind: ContinueOnErrorBehavior
+        errorResponseBody: Topic.API_Error
+
+      response: Topic.API_Response
+      responseSchema:
+        kind: Record
+        properties:
+          message: String
+          movies:
+            type:
+              kind: Table
+              properties:
+                Value: String
+
+          validation: Boolean
+
+    - kind: ConditionGroup
+      id: conditionGroup_fJ3aOM
+      conditions:
+        - id: conditionItem_Ba2k6A
+          condition: =IsBlank(Topic.API_Error)
+          actions:
+            - kind: ConditionGroup
+              id: conditionGroup_WadJhL
+              conditions:
+                - id: conditionItem_iJjUg9
+                  condition: =If(Topic.API_Response.validation = true , true ,false)
+                  actions:
+                    - kind: SendActivity
+                      id: sendActivity_5l5nc4
+                      activity: "{\"We’ve added \" & Topic.Var1 & \" to your Collection successfully. 📥 Let me know how else I can assist you! 😊\"}"
+
+              elseActions:
+                - kind: SendActivity
+                  id: sendActivity_8kTDLZ
+                  activity: |-
+                    **Oops! Looks like we couldn’t add the movie right now 🎬**
+                    No worries though — please try again in a little while. ⏳
+
+      elseActions:
+        - kind: SendActivity
+          id: sendActivity_w1ARs9
+          activity: |-
+            **The movie couldn’t be added right now.**
+            Please give it another try in a few moments. ⏳
+
+    - kind: CancelAllDialogs
+      id: yIdtBL
+
+inputType: {}
+outputType: {}

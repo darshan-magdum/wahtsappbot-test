@@ -1,0 +1,178 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRedirect
+  id: main
+  actions:
+    - kind: SetVariable
+      id: 5bx8rP
+      variable: Topic.CurrentTime
+      value: |-
+        =Text(
+            DateAdd(
+                DateTimeValue(Now()),
+                If(
+                    TimeZoneOffset(DateTimeValue(Now())) < 0,
+                    330 - Abs(TimeZoneOffset(DateTimeValue(Now()))),
+                    330
+                ),
+                TimeUnit.Minutes
+            ),
+            "dddd, mmm dd, yyyy"
+        ) &
+        " time is " &
+        Text(
+            DateAdd(
+                DateTimeValue(Now()),
+                If(
+                    TimeZoneOffset(DateTimeValue(Now())) < 0,
+                    330 - Abs(TimeZoneOffset(DateTimeValue(Now()))),
+                    330
+                ),
+                TimeUnit.Minutes
+            ),
+            "hh:mm AM/PM"
+        )
+
+    - kind: HttpRequestAction
+      id: r6idt8
+      method: Post
+      url: =Global.OpenAIEndpoint
+      headers:
+        api-key: =Global.OpenAIKey
+        content-type: application/json
+
+      body:
+        kind: JsonRequestContent
+        content: |-
+          ={
+            messages: [
+              {
+                content: "You are a Sales AI assistant that generates casual, friendly, and conversational responses for live applications. The responses should sound like two friends chatting. Strictly include all the information from the text provided as is. Don't use 'Hey!', 'Got it!' everytime, also don't use any emoji in response. If user's Text is about to ask the question then strictly just ask question with the given fields, don't add your own knowledge about that fields while asking the question. Don't use 'Hey!', 'Got it!' , 'Sure thing!' like words, instead  use words like 'Sure' or 'Of course' or 'I hear you' but every time use a different words. Also, don't provide prefacing responses in final response with meta comments like 'Here’s a friendly and concise message for you.'. Don't use dark humour words in response.
+                - **While generating the response other than in English languge, don't translate the **'Sold to'** phrase, instead keep as is in English.**
+                Always Remember current date is "&Topic.CurrentTime&". **The input message can be in any language but strictly generate the response in "&System.User.Language&" language only.**",
+                role: "system"
+              },
+              {
+                content: Topic.Message,
+                role: "user"
+              }
+            ],
+            model: "gpt-4"
+          }
+
+      errorHandling:
+        kind: ContinueOnErrorBehavior
+        statusCode: Topic.ErrorCode
+        errorResponseBody: Topic.ErrorResponse
+
+      response: Topic.Response
+      responseSchema: Any
+      responseHeaders: Topic.Response
+
+    - kind: ConditionGroup
+      id: fvbmYn
+      conditions:
+        - id: RTaASH
+          condition: =IsBlank(Topic.ErrorCode)
+          actions:
+            - kind: ParseValue
+              id: W5bvIQ
+              variable: Topic.OpenAIResposneParsed
+              valueType:
+                kind: Record
+                properties:
+                  choices:
+                    type:
+                      kind: Table
+                      properties:
+                        finish_reason: String
+                        index: Number
+                        message:
+                          type:
+                            kind: Record
+                            properties:
+                              content: String
+                              refusal: String
+                              role: String
+
+                  created: Number
+                  id: String
+                  model: String
+                  object: String
+                  system_fingerprint: String
+                  usage:
+                    type:
+                      kind: Record
+                      properties:
+                        completion_tokens: Number
+                        completion_tokens_details:
+                          type:
+                            kind: Record
+                            properties:
+                              accepted_prediction_tokens: Number
+                              audio_tokens: Number
+                              reasoning_tokens: Number
+                              rejected_prediction_tokens: Number
+
+                        prompt_tokens: Number
+                        prompt_tokens_details:
+                          type:
+                            kind: Record
+                            properties:
+                              audio_tokens: Number
+                              cached_tokens: Number
+
+                        total_tokens: Number
+
+              value: =Topic.Response
+
+            - kind: ConditionGroup
+              id: conditionGroup_nmsY9h
+              conditions:
+                - id: conditionItem_cdOiLF
+                  condition: =If(!IsBlank(First(Topic.OpenAIResposneParsed.choices).message.content) || Text(First(Topic.OpenAIResposneParsed.choices).message.content) <> "",true,false)
+                  actions:
+                    - kind: SetVariable
+                      id: UkftsL
+                      variable: Topic.GeneratedResponse
+                      value: =Text(First(Topic.Response.choices).message.content)
+
+                    - kind: ConditionGroup
+                      id: conditionGroup_IFv4mB
+                      conditions:
+                        - id: conditionItem_TPb9or
+                          condition: =!IsBlank(Topic.GeneratedResponse)
+
+                      elseActions:
+                        - kind: SetVariable
+                          id: bjLVjr
+                          variable: Topic.GeneratedResponse
+                          value: =Topic.ValidMessage
+
+              elseActions:
+                - kind: SetVariable
+                  id: setVariable_5gigyA
+                  variable: Topic.GeneratedResponse
+                  value: =Topic.ValidMessage
+
+      elseActions:
+        - kind: SetVariable
+          id: jOVJTi
+          variable: Topic.GeneratedResponse
+          value: =Topic.ValidMessage
+
+inputType:
+  properties:
+    Message:
+      displayName: Message
+      type: String
+
+    ValidMessage:
+      displayName: ValidMessage
+      type: String
+
+outputType:
+  properties:
+    GeneratedResponse:
+      displayName: GeneratedResponse
+      type: String

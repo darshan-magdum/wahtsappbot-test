@@ -1,0 +1,36 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Greeting
+    includeInOnSelectIntent: false
+    triggerQueries:
+      - Hey Alina!
+      - hello Alina
+      - how are you
+      - good morning
+      - good afternoon
+      - hi
+      - hello
+      - hey
+      - hello Alina How are you
+      - hello Alina please help me
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_abmysR
+      activity:
+        text:
+          - |-
+            **Hey there! I'm Alina, your SmartCard Assistant 😊**
+            I'm here to help you with anything you need — just let me know what you'd like to do!
+            You can:
+            🎬 Add a movie
+            💳 Top up your balance
+            📊 Check your account details
+        speak:
+          - Hello, <break strength="medium" /> how can I help?
+
+    - kind: CancelAllDialogs
+      id: cancelAllDialogs_01At22

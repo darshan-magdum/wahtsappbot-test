@@ -1,0 +1,78 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRedirect
+  id: main
+  actions:
+    - kind: ConditionGroup
+      id: conditionGroup_8vTsXC
+      conditions:
+        - id: conditionItem_eA15u1
+          condition: =IsBlank(Global.SmartCard_Number)
+          actions:
+            - kind: BeginDialog
+              id: gZeyI7
+              dialog: cr053_whatsappbot.topic.VerifySmartCardAndMobile
+
+    - kind: Question
+      id: question_72FLKa
+      interruptionPolicy:
+        allowInterruption: true
+
+      variable: init:Topic.Money
+      prompt: "{\"😊 Hello \" & Global.Name & \",  please enter the amount you wish to add. \"}"
+      entity: MoneyPrebuiltEntity
+
+    - kind: HttpRequestAction
+      id: 3LEIBJ
+      method: Post
+      url: =Global.BaseUrl&"/add-balance"
+      body:
+        kind: JsonRequestContent
+        content: |-
+          ={
+          smartcardNumber: Global.SmartCard_Number,
+          amount: Topic.Money
+          }
+
+      errorHandling:
+        kind: ContinueOnErrorBehavior
+        errorResponseBody: Topic.API_Error
+
+      response: Topic.API_Response
+      responseSchema:
+        kind: Record
+        properties:
+          message: String
+          totalBalance: Number
+          validation: Boolean
+
+    - kind: ConditionGroup
+      id: conditionGroup_fJ3aOM
+      conditions:
+        - id: conditionItem_Ba2k6A
+          condition: =IsBlank(Topic.API_Error)
+          actions:
+            - kind: ConditionGroup
+              id: conditionGroup_WadJhL
+              conditions:
+                - id: conditionItem_iJjUg9
+                  condition: =If(Topic.API_Response.validation = true , true ,false)
+                  actions:
+                    - kind: SendActivity
+                      id: sendActivity_5l5nc4
+                      activity: |-
+                        {
+                        "✅ We’ve added ₹" & Topic.Money & " to your SmartCard successfully. Your current balance is ₹" & Topic.API_Response.totalBalance & ". You're all set to use the available balance for your favorite activities. Let me know how else I can assist you!"}
+
+              elseActions:
+                - kind: SendActivity
+                  id: sendActivity_8kTDLZ
+                  activity: |-
+                    **Sorry, we couldn’t retrieve your balance details at the moment.**
+                    Please try again shortly.
+
+    - kind: CancelAllDialogs
+      id: yIdtBL
+
+inputType: {}
+outputType: {}

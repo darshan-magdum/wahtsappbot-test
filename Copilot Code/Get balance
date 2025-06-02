@@ -1,0 +1,63 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRedirect
+  id: main
+  actions:
+    - kind: ConditionGroup
+      id: conditionGroup_8vTsXC
+      conditions:
+        - id: conditionItem_eA15u1
+          condition: =IsBlank(Global.SmartCard_Number)
+          actions:
+            - kind: BeginDialog
+              id: gZeyI7
+              dialog: cr053_whatsappbot.topic.VerifySmartCardAndMobile
+
+    - kind: HttpRequestAction
+      id: 3LEIBJ
+      method: Get
+      url: =Global.BaseUrl & "/get-balance?smartcardNumber=" & Global.SmartCard_Number
+      body: {}
+      errorHandling:
+        kind: ContinueOnErrorBehavior
+        errorResponseBody: Topic.API_Error
+
+      response: Topic.API_Response
+      responseSchema:
+        kind: Record
+        properties:
+          balance: Number
+          movies:
+            type:
+              kind: Table
+
+          validation: Boolean
+
+    - kind: ConditionGroup
+      id: conditionGroup_fJ3aOM
+      conditions:
+        - id: conditionItem_Ba2k6A
+          condition: =IsBlank(Topic.API_Error)
+          actions:
+            - kind: ConditionGroup
+              id: conditionGroup_WadJhL
+              conditions:
+                - id: conditionItem_iJjUg9
+                  condition: =If(Topic.API_Response.validation = true , true ,false)
+                  actions:
+                    - kind: SendActivity
+                      id: sendActivity_5l5nc4
+                      activity: "{\"We’ve successfully retrieved your balance. You currently have 💰 \" & Topic.API_Response.balance & \" ₹ available in your account. Let us know if you’d like to add more funds or proceed with other services.\"}"
+
+              elseActions:
+                - kind: SendActivity
+                  id: sendActivity_8kTDLZ
+                  activity: |-
+                    **Apologies, we are unable to retrieve your balance details at the moment.**
+                    Please try again shortly.
+
+    - kind: CancelAllDialogs
+      id: yIdtBL
+
+inputType: {}
+outputType: {}

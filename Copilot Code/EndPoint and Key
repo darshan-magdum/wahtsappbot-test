@@ -1,0 +1,23 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent: {}
+  actions:
+    - kind: SetVariable
+      id: setVariable_ZxVmqw
+      variable: Global.BaseUrl
+      value: ="https://wahtsappbot-test.onrender.com"
+
+    - kind: SetVariable
+      id: dSEQVA
+      variable: Global.OpenAIEndpoint
+      value: ="https://tesa-gpt-4o.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2023-03-15-preview"
+
+    - kind: SetVariable
+      id: e4Hrvy
+      variable: Global.OpenAIKey
+      value: ="a05fa11d4d0748f0bd475bbc20a5ec76"
+
+inputType: {}
+outputType: {}

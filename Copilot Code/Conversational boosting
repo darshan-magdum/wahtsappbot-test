@@ -1,0 +1,178 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnUnknownIntent
+  id: main
+  priority: 1
+  actions:
+    - kind: BeginDialog
+      id: harPtR
+      dialog: cr053_whatsappbot.topic.EndPointandKey
+
+    - kind: HttpRequestAction
+      id: cKLh57
+      method: Post
+      url: =Global.OpenAIEndpoint
+      headers:
+        api-key: =Global.OpenAIKey
+        content-type: application/json
+
+      body:
+        kind: JsonRequestContent
+        content: |-
+          ={
+            functions: [
+              {
+                description: "Classify the text into one of the predefined topics: 'AddBalance', 'GetBalance', 'AddMovie'. Only one topic can be marked as true, and all others must be false. If no relevant topic is found, mark all as false.",
+                name: "classify_topic",
+                parameters: {
+                  properties: {
+                    AddBalance: {
+                      description: "True if the user wants to add money, recharge, top-up, or increase the balance. Includes phrases like 'add balance', 'recharge', 'top up my account', 'increase balance', 'add money', 'credit ₹50', etc.",
+                      type: "boolean"
+                    },
+                    AddMovie: {
+                      description: "True if the user wants to add a movie to a list, database, or collection. Includes terms like 'add movie', 'include a movie', 'save a movie', or 'add film to my watchlist'.",
+                      type: "boolean"
+                    },
+                    GetBalance: {
+                      description: "True if the user is asking for the current balance or checking how much money they have. Includes terms like 'check balance', 'get balance', 'show my balance', 'how much money I have', etc.",
+                      type: "boolean"
+                    }
+                  },
+                  required: ["AddBalance","GetBalance","AddMovie"
+                  ],
+                  type: "object"
+                }
+              }
+            ],
+            messages: [
+              {
+                content: "You are an assistant trained to classify text into one of the predefined topics: 'AddBalance', 'GetBalance', 'AddMovie'. Only one topic can be marked as true, and all others must be false. If no topic matches the input, mark all as false.",
+                role: "system"
+              },
+              {
+                content: "Please analyze the following text and classify it into one of the predefined topics based on the descriptions:
+          
+          - **AddBalance**: Add money, recharge, top-up, increase balance (e.g., 'add balance', 'top up ₹50').
+          - **GetBalance**: Check or get balance (e.g., 'what is my balance?', 'show balance').
+          - **AddMovie**: Add a movie to a list or collection (e.g., 'add a movie', 'save this film').
+          
+          Text: '"&System.Activity.Text&"'",
+                role: "user"
+              }
+            ],
+            model: "gpt-4",
+            temperature: 0
+          }
+
+      errorHandling:
+        kind: ContinueOnErrorBehavior
+        statusCode: Topic.ErrorCode
+        errorResponseBody: Topic.ErrorResponse
+
+      response: Topic.Response
+      responseSchema: Any
+      responseHeaders: Topic.Response
+
+    - kind: ConditionGroup
+      id: conditionGroup_KdxRCo
+      conditions:
+        - id: conditionItem_c1I5Nw
+          condition: =IsBlank(Topic.ErrorCode)
+
+      elseActions:
+        - kind: SendActivity
+          id: sendActivity_44pWe6
+          activity: Sorry, I'm having trouble processing your request at the moment. can you please try again later? I'm happy to help you!
+
+        - kind: CancelAllDialogs
+          id: BEUqf3
+
+    - kind: ParseValue
+      id: VgyZnB
+      variable: Topic.CustomerFields
+      valueType:
+        kind: Record
+        properties:
+          AddBalance: Boolean
+          AddMovie: Boolean
+          GetBalance: Boolean
+
+      value: |
+        =If(
+            !IsBlank(First(Topic.Response.choices).message.function_call),
+            Text(First(Topic.Response.choices).message.function_call.arguments),
+            If(
+                StartsWith(Text(First(Topic.Response.choices).message.content), "```json"),
+                // Remove backticks and extract the JSON content
+                Substitute(
+                    Substitute(
+                        Mid(
+                            Text(First(Topic.Response.choices).message.content),
+                            8, // Skip the initial "```json"
+                            Len(Text(First(Topic.Response.choices).message.content)) - 10
+                        ),
+                        "```",
+                        ""
+                    ),
+                    "\n",
+                    ""
+                ),
+                Text(First(Topic.Response.choices).message.content)
+            )
+        )
+
+    - kind: ConditionGroup
+      id: conditionGroup_QCdhnt
+      conditions:
+        - id: conditionItem_E4Y21j
+          condition: =If(Topic.CustomerFields.AddBalance=true,true,false)
+          actions:
+            - kind: BeginDialog
+              id: gfcUWO
+              dialog: cr053_whatsappbot.topic.AddBalance
+
+        - id: conditionItem_KrDIgx
+          condition: =If(Topic.CustomerFields.GetBalance=true,true,false)
+          actions:
+            - kind: BeginDialog
+              id: vy9k7X
+              dialog: cr053_whatsappbot.topic.Getbalance
+
+        - id: conditionItem_8wZQrh
+          condition: =If(Topic.CustomerFields.AddMovie=true,true,false)
+          actions:
+            - kind: BeginDialog
+              id: C04dCJ
+              dialog: cr053_whatsappbot.topic.AddMovie
+
+      elseActions:
+        - kind: SetVariable
+          id: setVariable_OqxdRx
+          variable: Global.UserPrompt
+          value: =System.Activity.Text
+
+        - kind: BeginDialog
+          id: JESsiB
+          input:
+            binding:
+              Message: |-
+                ="Generate a witty yet professional response using the following reference:
+                
+                **'I’m sorry, I currently cannot assist with that request. I’m designed to help with Balance Management and Movie Management activities. How can I assist you with tasks like adding movies or managing user balances?'**
+                
+                
+                Ensure the response follows the same structure and intent but naturally incorporates the user’s prompt """&Global.UserPrompt&""" without adding extra context or unrelated elements."
+              ValidMessage: ="Oh, I wish I could spin a good yarn for you, but I’m more of a wizard with managing balance updates, adding balance, and helping you add movies. How can I assist you with those today?"
+
+          dialog: cr053_whatsappbot.topic.FinalAIResponse
+          output:
+            binding:
+              GeneratedResponse: Topic.GeneratedResponse
+
+        - kind: SendActivity
+          id: sendActivity_djH0Nw
+          activity: "{Topic.GeneratedResponse}"
+
+    - kind: CancelAllDialogs
+      id: v7jqKb
